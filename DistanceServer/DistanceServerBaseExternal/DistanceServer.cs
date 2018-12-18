@@ -86,7 +86,7 @@ public class DistanceServer
         }
     }
 
-    int distanceVersion = 6670;
+    int distanceVersion = 6703;
     public int DistanceVersion
     {
         get

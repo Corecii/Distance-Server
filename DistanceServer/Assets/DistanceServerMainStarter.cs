@@ -30,7 +30,8 @@ public class DistanceServerMainStarter : MonoBehaviour {
                 return null;
             };
             */
-            var file = new System.IO.FileInfo("DistanceServerBaseExternal.dll");
+            var exeDir = new System.IO.DirectoryInfo(UnityEngine.Application.dataPath).Parent;
+            var file = new System.IO.FileInfo(exeDir.FullName + "/DistanceServerBaseExternal.dll");
             using (System.IO.Stream stream = System.IO.File.OpenRead(file.FullName))
             {
                 byte[] rawAssembly = new byte[stream.Length];
@@ -68,68 +69,68 @@ public class DistanceServerMainStarter : MonoBehaviour {
 
     private void Update()
     {
-        External.Update();
+        External?.Update();
     }
 
     void OnServerInitialized()
     {
-        External.OnServerInitialized();
+        External?.OnServerInitialized();
     }
 
     void OnPlayerConnected(NetworkPlayer player)
     {
-        External.OnPlayerConnected(player);
+        External?.OnPlayerConnected(player);
     }
 
     void OnPlayerDisconnected(NetworkPlayer player)
     {
-        External.OnPlayerDisconnected(player);
+        External?.OnPlayerDisconnected(player);
     }
 
     private void OnDestroy()
     {
-        External.OnDestroy();
+        External?.OnDestroy();
     }
 	 
     [RPC]
     void ReceiveBroadcastAllEvent(byte[] bytes)
     {
-        External.ReceiveBroadcastAllEvent(bytes);
+        External?.ReceiveBroadcastAllEvent(bytes);
     }
 
     [RPC]
     void ReceiveClientToServerEvent(byte[] bytes)
     {
-        External.ReceiveClientToServerEvent(bytes);
+        External?.ReceiveClientToServerEvent(bytes);
     }
 
     [RPC]
     void ReceiveServerToClientEvent(byte[] bytes)
     {
-        External.ReceiveServerToClientEvent(bytes);
+        External?.ReceiveServerToClientEvent(bytes);
     }
 
     [RPC]
     void ReceiveTargetedEventServerToClient(byte[] bytes)
     {
-        External.ReceiveTargetedEventServerToClient(bytes);
+        External?.ReceiveTargetedEventServerToClient(bytes);
     }
 
     [RPC]
     void ReceiveSerializeEvent(byte[] bytes)
     {
-        External.ReceiveSerializeEvent(bytes);
+        External?.ReceiveSerializeEvent(bytes);
     }
 
     [RPC]
     void ReceiveServerNetworkTimeSync(int serverNetworkTimeIntHigh, int serverNetworkTimeIntLow, NetworkMessageInfo info)
     {
-        External.ReceiveServerNetworkTimeSync(serverNetworkTimeIntHigh, serverNetworkTimeIntLow, info);
+        External?.ReceiveServerNetworkTimeSync(serverNetworkTimeIntHigh, serverNetworkTimeIntLow, info);
     }
 
     [RPC]
     void SubmitServerNetworkTimeSync(NetworkMessageInfo info)
     {
-        External.SubmitServerNetworkTimeSync(info);
+        External?.SubmitServerNetworkTimeSync(info);
     }
 }
