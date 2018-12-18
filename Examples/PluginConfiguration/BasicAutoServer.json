@@ -1,0 +1,43 @@
+{
+	"ServerName": "Top Workshop Mix (Auto)",
+	"Port": 45681,
+	"LoadWorkshopLevels": true,
+	"ReportToMasterServer": true,
+	"IdleTimeout": 60.0,
+	"MaxPlayers":24,
+	"WelcomeMessage": "Press [00FF00]C[-] to chat. Chat [00FFFF]/help[-] for commands.",
+	"Workshop":[
+		{
+			"Search":"",
+			"SearchType":"GameFiles",
+			"Sort":"Popular",
+			"Days":30,
+			"Tags":["Sprint"],
+			"Count":10
+		},
+		{
+			"Search":"",
+			"SearchType":"GameFiles",
+			"Sort":"Popular",
+			"Days":360,
+			"Tags":["Sprint"],
+			"Count":30
+		},
+		{
+			"Search":"",
+			"SearchType":"GameFiles",
+			"Sort":"Subscribed",
+			"Days":-1,
+			"Tags":["Sprint"],
+			"Count":200
+		},
+		{
+			"Search":"",
+			"SearchType":"GameFiles",
+			"Sort":"Popular",
+			"Days":-1,
+			"Tags":["Sprint"],
+			"Count":200
+		}
+	]
+}

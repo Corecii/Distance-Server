@@ -1,0 +1,15 @@
+{
+    "FriendlyName": "NetworkDebugger",
+    "Author": "Corecii",
+    "AuthorContact": "corecii@corecii.com",
+    "CompatibleAPILevel": 6,
+    "IPCIdentifier": "NetworkDebugger",
+    
+    "ModuleFileName": "NetworkDebugger.plugin.dll",
+    "EntryClassName": "Entry",
+    
+    "Priority": -10,
+    "SkipLoad": false,
+    
+    "Dependencies": ["0Harmony.dll"]
+}

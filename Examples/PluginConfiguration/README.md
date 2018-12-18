@@ -1,0 +1,1 @@
+This is the plugin configuration used in the Auto Community Levels server. It should serve as a sufficient example for how to configure plugins.

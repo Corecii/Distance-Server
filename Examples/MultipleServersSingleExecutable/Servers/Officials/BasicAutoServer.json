@@ -1,0 +1,6 @@
+{
+"ServerName": "Campaign Only (Auto)",
+"Port": 45671,
+"LoadWorkshopLevels": false,
+"IdleTimeout":60.0
+}
