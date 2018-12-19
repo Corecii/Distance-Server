@@ -80,6 +80,19 @@ An example script to run multiple servers from multiple directories is provided 
 
 The server, plugins, patcher, and network debugger can be opened using Visual Studio 2017.
 
+Since this project uses git submodules, you can either do your initial clone of the project using:
+
+```
+git clone --recursive https://github.com/Corecii/Distance-Server
+```
+
+Or you can clone the repository, then init all submodules:
+
+```
+git clone https://github.com/Corecii/Distance-Server
+git submodule update --init --recursive
+```
+
 ### Network Debugger
 
 The network debugger is a [Spectrum](https://github.com/Ciastex/Spectrum) mod that...
