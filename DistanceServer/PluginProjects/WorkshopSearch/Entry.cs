@@ -13,6 +13,7 @@ namespace WorkshopSearch.Plugin
         public override string Author { get; } = "Corecii; Discord: Corecii#3019";
         public override string DisplayName { get; } = "WorkshopSearch API Utility";
         public override int Priority { get; } = -9;
+        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.2");
 
         public Entry()
         {

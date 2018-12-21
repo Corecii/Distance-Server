@@ -8,6 +8,7 @@ using UnityEngine;
 
 public class DistanceServerMainStarter : MonoBehaviour {
     public static DistanceServerMainStarter Instance;
+    public int StarterVersion = 1;
 
     void Awake()
     {
@@ -19,6 +20,7 @@ public class DistanceServerMainStarter : MonoBehaviour {
 
     void LoadServerBaseExternal()
     {
+        Log.Info($"Starter version {StarterVersion}");
         Log.Info($"Attempting to load DistanceServerBaseExternal.dll...");
         try
         {
@@ -56,6 +58,10 @@ public class DistanceServerMainStarter : MonoBehaviour {
             var serverType = loaded.GetType("DistanceServerMain", true);
             External = (DistanceServerMainBase)System.Activator.CreateInstance(serverType);
             Log.Info($"Loaded plugin DistanceServerBaseExternal.dll");
+            if (External.CompatibleStarterVersion != StarterVersion)
+            {
+                Log.Warn($"DistanceServerBaseExternal is made for {(External.CompatibleStarterVersion > StarterVersion ? "a newer" : "an older")} version of the starter ({External.CompatibleStarterVersion}), errors may occur.");
+            }
         }
         catch (Exception e)
         {

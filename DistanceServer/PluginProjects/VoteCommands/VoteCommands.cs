@@ -14,6 +14,7 @@ namespace VoteCommands
         public override string Author => "Corecii; Discord: Corecii#3019";
         public override string DisplayName => "Voting Commands Plugin";
         public override int Priority => -4;
+        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.2");
 
         public bool HasSkipped = false;
         public double SkipThreshold = .7;

@@ -8,7 +8,11 @@ using UnityEngine;
 
 #pragma warning disable 612,618  // disable warnings for obsolete things. we have to use those here.
 
-public class DistanceServerMain : DistanceServerMainBase {
+public class DistanceServerMain : DistanceServerMainBase
+{
+    public static SemanticVersion ServerVersion = new SemanticVersion("0.1.2");
+    public override int CompatibleStarterVersion => 1;
+
     public static NetworkView View;
 
     public static List<NetworkEvent> ClientToClientEvents = new List<NetworkEvent>
@@ -336,7 +340,7 @@ public class DistanceServerMain : DistanceServerMainBase {
 
         LoadPlugins();
 
-        Log.WriteLine($"Starting server on port {Server.Port}");
+        Log.WriteLine($"Starting server version {Server.DistanceVersion} on port {Server.Port}");
         Network.InitializeServer(Server.MaxPlayers, Server.Port, false);
 	}
     
@@ -514,6 +518,30 @@ public class DistanceServerMain : DistanceServerMainBase {
             try
             {
                 Log.Info($"Loading plugin {plugin.DisplayName} by {plugin.Author}...");
+                if (plugin.ServerVersion != ServerVersion)
+                {
+                    Log.Warn($"Server version: {ServerVersion}; Plugin was made for {plugin.ServerVersion}");
+                    if (plugin.ServerVersion > ServerVersion)
+                    {
+                        Log.Warn($"Plugin {plugin.DisplayName} was made for a newer version and will likely work incorrectly!");
+                    }
+                    else if (plugin.ServerVersion.forkCode != ServerVersion.forkCode)
+                    {
+                        Log.Warn($"Plugin {plugin.DisplayName} was made for a different version with possibly-breaking API changes and will likely work incorrectly!");
+                    }
+                    else if (plugin.ServerVersion.major < ServerVersion.major || (ServerVersion.major == 0 && plugin.ServerVersion.minor < ServerVersion.minor))
+                    {
+                        Log.Warn($"Plugin {plugin.DisplayName} was made for an older version with breaking API changes and will likely work incorrectly!");
+                    }
+                    else if (plugin.ServerVersion.minor < ServerVersion.minor)
+                    {
+                        Log.Warn($"Plugin {plugin.DisplayName} was made for an older version with non-breaking feature improvements and may work incorrectly");
+                    }
+                    else if (plugin.ServerVersion.patch < ServerVersion.patch)
+                    {
+                        Log.Warn($"Plugin {plugin.DisplayName} was made for an older version without small bug fixes and may work incorrectly");
+                    }
+                }
                 plugin.Manager = this;
                 plugin.Server = Server;
                 plugin.Start();

@@ -15,6 +15,8 @@ public abstract class DistanceServerMainBase
         }
     }
 
+    public abstract int CompatibleStarterVersion { get; }
+
     public abstract void Awake();
     public abstract void Update();
     public abstract void OnServerInitialized();

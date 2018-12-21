@@ -71,3 +71,9 @@ Since the distance server can load multiple entry points per plugin, you can spe
 The distance server provides a `T GetPlugin<T>()` method, which returns the loaded instance of the given plugin type `T`. Add a reference to the other plugin type, and use `GetPlugin<T>` to get its plugin instance. Alternatively, just add a reference to the other plugin dll and use its static methods. Since the distance server loads all plugins before calling any plugin code, you should always get the already-loaded plugin.
 
 The BasicAutoServer plugin provides methods to customize server behavior, filter levels, and set a custom playlist. The WorkshopSearch plugin provides methods to search the workshop by parsing the user-facing workshop pages.
+
+### Versioning
+
+Plugins must indicate the server version that they are compatible with. This is used to warn the user of incompatible plugins, or indicate forks that may have different features at different versions.
+
+Until version 1.x.x, all minor version may contain breaking changes. See [the readme](/README.md) for more information.

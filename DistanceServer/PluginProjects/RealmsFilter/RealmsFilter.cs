@@ -12,6 +12,7 @@ namespace RealmsFilter
         public override string Author => "Corecii; Discord: Corecii#3019";
         public override string DisplayName => "RealmsFilter";
         public override int Priority => 0;
+        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.2");
 
         public enum FilterModeType
         {

@@ -14,6 +14,7 @@ namespace BasicAutoServer
         public override string DisplayName => "Basic Auto Server";
         public override string Author => "Corecii; Discord: Corecii#3019";
         public override int Priority => -5;
+        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.2");
 
         enum Stage
         {

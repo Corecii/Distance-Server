@@ -119,3 +119,34 @@ If you would like to provide the server in an easy-to-use package, then it is re
 The server is set up to make testing easy. Each plugin copies its files to the default Plugins directory when built. The external server dll copies to the executable directory when built. The server project comes with configuration files that make testing the plugins and the servee as a whole easy.
 
 Build all the plugins and the external server in Visual Studio. Run the server in Unity. The server should load all plugins and their config files into a local server that does not report to the master server. You can test it by joining `127.0.0.1` or your local IP address if connecting from another local computer.
+
+### Preparing for Release
+
+* Windows zips should contain:
+    * The server in development mode for 64 bit
+    * The plugins, in a Plugins directory in the server executable directory
+    * DistanceServerBaseExternal.dll, in the server executable directory
+    * The Patcher, with Patcher.exe and its dependencies in the server executable directory
+* Linux zips should contain:
+    * The server in headless mode for 64 bit
+    * The plugins, in a Plugins directory in the server executable directory
+    * DistanceServerBaseExternal.dll, in the server executable directory
+* The Patcher zip should contain the Patcher in its own folder built for Windows
+
+The batch script, `release-prepare.bat`, will prepare these files on Windows. Existing files will be deleted before preparing so that if anything fails to prepare, it will be missing instead of outdated.
+
+### Versioning
+
+This project uses semantic versioning: `major.minor.patch`
+
+* The `major` number indicates likely incompatibilities between releases for plugins using the API.
+* The `minor` number indicates releases that are backwards-compatible and introduce new features or API.
+* The `patch` number indicates small changes like bugfixes or mini features that usually do no change the API but do change behavior.
+
+Additionally, this patch has an optional "fork code": `fork.major.minor.patch`. If you fork the project and implement breaking changes, you can change the fork code to indicate that your fork's version numbers are not compatible with other forks' version numbers. The fork code for the original branch is an empty string.
+
+During `0.x.x` releases, minor pathes are also treated as breaking changes. **API-breaking changes are expected until version 1.x.x!**
+
+The starter uses a simple versioning scheme, where each increment of the number indicates an incompatibility with older versions.
+
+The user is warned of any possible version compatibilities when plugins or the starter are loaded.
