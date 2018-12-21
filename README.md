@@ -8,11 +8,11 @@ Grab the Server release from the Releases page. Unzip it to anywhere you want.
 
 The server needs a patched version of Distance's code to run:
 
-1. Grab the Patcher release from the Releases page.
+1. Grab the Patcher. If you're on Windows, this comes with the Windows zip.
 2. Open up your copy of Distance. If you got Distance through Steam, this will be at `C:\Program Files (x86)\Steam\steamapps\common\Distance`. If otherwise, then you should know its install location.
 3. Navigate to the `Distance\Distance_Data\Managed` directory.
 4. Drag `Assembly-CSharp.dll` to `Patcher.exe`.
-5. Drag `Distance.dll` to the Server directory.
+5. If you're not using the Windows zip, drag `Distance.dll` to the Server directory.
 
 ### Config
 
