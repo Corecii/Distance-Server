@@ -43,7 +43,6 @@ public class RigidbodyStateTransceiver : NetworkStateTransceiverExternalBase
     {
         stateTransceiver.OnSerializeNetworkView(stream, info);
         var buffer = (Distance::SortedCircularBuffer<Distance::RigidbodyStateTransceiver.Snapshot>)PrivateUtilities.getPrivateField(stateTransceiver, "buffer_");
-        Log.Debug($"Transceiver\nTime: {(Distance::NetworkTransceiver.Time_)}\nFirst: {buffer.First_.pos}\nLast: {buffer.Last_.pos}");
     }
 
     public override void Start()

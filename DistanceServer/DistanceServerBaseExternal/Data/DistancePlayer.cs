@@ -84,7 +84,7 @@ public class DistancePlayer : IExternalData
             {
                 return Distance::LevelCompatabilityStatus.Unverified;
             }
-            /*
+            /* Proper version calculation is not implemented yet
             if (LevelCompatibilityInfo.LevelVersion != Server.CurrentLevel.LevelVersion)
             {
                 return LevelCompatabilityStatus.WrongVersion;
@@ -155,31 +155,19 @@ public class DistancePlayer : IExternalData
             status_ = LevelCompatability
         };
     }
-
-    // Token: 0x02000999 RID: 2457
+    
     public enum PlayerState
     {
-        // Token: 0x040038F2 RID: 14578
         Initializing,
-        // Token: 0x040038F3 RID: 14579
         Initialized,
-        // Token: 0x040038F4 RID: 14580
         LoadingLobbyScene,
-        // Token: 0x040038F5 RID: 14581
         LoadedLobbyScene,
-        // Token: 0x040038F6 RID: 14582
         SubmittedLobbyInfo,
-        // New
         WaitingForCompatibilityStatus,
-        // Token: 0x040038F7 RID: 14583
         LoadingGameModeScene,
-        // Token: 0x040038F8 RID: 14584
         LoadedGameModeScene,
-        // Token: 0x040038F9 RID: 14585
         SubmittedGameModeInfo,
-        // Token: 0x040038FA RID: 14586
         StartedMode,
-        // Token: 0x040038FB RID: 14587
         CantLoadLevelSoInLobby
     }
 }
