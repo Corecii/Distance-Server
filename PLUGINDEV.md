@@ -21,7 +21,7 @@
 10. Add references to the other added projects
 11. Add a reference to `Distance.dll`, and give it the `Distance` alias instead of `global`. If you need to access it in a file, you must add `extern alias Distance;` to the top of the file.
 12. Add a post-build event to copy the plugin files to the server directory: `xcopy "$(TargetDir)$(TargetName).*" "$(SolutionDir)DistanceServerStandalone/DistanceServer/Plugins" /Y`
-13. Write your plugin. Building it shold copy the dll files to the test server's plugin directory, which you can run in the Unity Editor to test your plugin.
+13. Write your plugin. Building it should copy the dll files to the test server's plugin directory, which you can run in the Unity Editor to test your plugin.
 
 A git submodule is used so that the exact version of DistanceServerStandalone is tracked and easy for other contributors to grab. This makes it easy for others to work on your project and easy for you to come back to. This also makes upgrading easy: pull the new version of DistanceServerStandlone, then update all of your code for the new version.
 
