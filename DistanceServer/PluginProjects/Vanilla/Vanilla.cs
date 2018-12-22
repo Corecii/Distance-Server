@@ -11,7 +11,7 @@ namespace Vanilla
         public override string Author { get; } = "Corecii; Discord: Corecii#3019";
         public override string DisplayName { get; } = "Vanilla Functionality";
         public override int Priority { get; } = -10;
-        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.2");
+        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.3");
 
         public override void Start()
         {

@@ -29,7 +29,7 @@ namespace HttpConsole
         public override string Author { get; } = "Corecii; Discord: Corecii#3019";
         public override string DisplayName { get; } = "Http Console";
         public override int Priority { get; } = 0;
-        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.2");
+        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.3");
 
         internal delegate string Command(string input);
         Dictionary<string, Command> commands = new Dictionary<string, Command>();

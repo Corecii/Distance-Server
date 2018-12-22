@@ -17,6 +17,7 @@ class GameModeBridge : Distance::GameMode
         // make isGo_ true:
         isStarted_ = true;
         PrivateUtilities.setPrivateProperty(typeof(Distance::Timex), null, "PhysicsFrameCount_", 0);
+        StartPhysFrame_ = -1;
     }
 
     public override Distance::GameModeID GameModeID_ => throw new NotImplementedException();

@@ -14,10 +14,11 @@ namespace VoteCommands
         public override string Author => "Corecii; Discord: Corecii#3019";
         public override string DisplayName => "Voting Commands Plugin";
         public override int Priority => -4;
-        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.2");
+        public override SemanticVersion ServerVersion => new SemanticVersion("0.1.3");
 
         public bool HasSkipped = false;
         public double SkipThreshold = .7;
+        public List<string> RequiredTags = new List<string>();
 
         public Dictionary<string, double> LeftAt = new Dictionary<string, double>();
         public Dictionary<string, DistanceLevel> PlayerVotes = new Dictionary<string, DistanceLevel>();
@@ -39,6 +40,12 @@ namespace VoteCommands
                 var reader = new JsonFx.Json.JsonReader();
                 var dictionary = (Dictionary<string, object>)reader.Read(txt);
                 TryGetValue(dictionary, "SkipThreshold", ref SkipThreshold);
+                var tagsBase = new object[0];
+                TryGetValue(dictionary, "RequiredTags", ref tagsBase);
+                foreach (object tagBase in tagsBase)
+                {
+                    RequiredTags.Add((string)tagBase);
+                }
                 Log.Info("Loaded settings from VoteCommands.json");
             }
             catch (Exception e)
@@ -168,7 +175,7 @@ namespace VoteCommands
             match = Regex.Match(message, @"^/help$");
             if (match.Success)
             {
-                Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search /vote /skip[-]");
+                Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search /vote /skip /clear[-]");
             }
 
 
@@ -179,25 +186,30 @@ namespace VoteCommands
                 if (!SkipVotes.Contains(player.UnityPlayerGuid))
                 {
                     SkipVotes.Add(player.UnityPlayerGuid);
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"Added your vote to skip the level {SkipVotes.Count + 1}/{NeededVotesToSkipLevel}");
+                    Server.SayLocalChatMessage(player.UnityPlayer, $"Added your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
                     CheckForSkip();
                 }
                 else
                 {
                     SkipVotes.Remove(player.UnityPlayerGuid);
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"Removed your vote to skip the level {SkipVotes.Count + 1}/{NeededVotesToSkipLevel}");
+                    Server.SayLocalChatMessage(player.UnityPlayer, $"Removed your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
                 }
                 return;
             }
 
             var isVote = true;
-            match = match = Regex.Match(message, @"^/vote (.*)$");
+            string levelSearchName = null;
+            match = Regex.Match(message, @"^/vote (.*)$");
             if (!match.Success)
             {
                 match = Regex.Match(message, @"^/search (.*)$");
                 isVote = false;
             }
-            if (!match.Success)
+            if (match.Success)
+            {
+                levelSearchName = match.Groups[1].ToString();
+            }
+            else
             {
                 if (Regex.Match(message, @"^/vote$").Success || Regex.Match(message, @"^/search$").Success)
                 {
@@ -207,20 +219,16 @@ namespace VoteCommands
                     }
                     Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search name[-] or [00FFFF]/search name by author[-] to search\n[00FFFF]/vote name[-] or [00FFFF]/vote name by author[-] to vote for a level\n[00FFFF]/vote clear[-] to clear your vote\n[00FFFF]/skip[-] to vote to skip the level");
                 }
-                return;
-            }
-
-            var levelSearchName = match.Groups[1].ToString();
-
-            if (levelSearchName == "clear")
-            {
-                string levelName = "";
-                if (PlayerVotes.ContainsKey(player.UnityPlayerGuid))
+                else if (Regex.Match(message, @"^/clear$").Success)
                 {
-                    levelName = $" for [00FF00]{PlayerVotes[player.UnityPlayerGuid].Name}[-]";
+                    string levelName = "";
+                    if (PlayerVotes.ContainsKey(player.UnityPlayerGuid))
+                    {
+                        levelName = $" for [00FF00]{PlayerVotes[player.UnityPlayerGuid].Name}[-]";
+                    }
+                    PlayerVotes.Remove(player.UnityPlayerGuid);
+                    Server.SayLocalChatMessage(player.UnityPlayer, $"Removed your vote" + levelName);
                 }
-                PlayerVotes.Remove(player.UnityPlayerGuid);
-                Server.SayLocalChatMessage(player.UnityPlayer, $"Removed your vote" + levelName);
                 return;
             }
 
@@ -258,42 +266,84 @@ namespace VoteCommands
                 searchText = Regex.Replace(searchText, @"\s*by (.*)$", "");
                 onlyBy = byMatch.Groups[1].ToString();
             }
-            var search = new WorkshopSearch.DistanceSearchRetriever(new WorkshopSearch.DistanceSearchParameters()
+            var searches = new List<WorkshopSearch.DistanceSearchRetriever>();
+            if (RequiredTags.Count == 0)
             {
-                Search = new WorkshopSearch.WorkshopSearchParameters()
+                searches.Add(new WorkshopSearch.DistanceSearchRetriever(new WorkshopSearch.DistanceSearchParameters()
                 {
-                    AppId = WorkshopSearch.Workshop.DistanceAppId,
-                    SearchText = searchText,
-                    SearchType = WorkshopSearch.WorkshopSearchParameters.SearchTypeType.GameFiles,
-                    Sort = WorkshopSearch.WorkshopSearchParameters.SortType.Relevance,
-                    Days = -1,
-                    NumPerPage = 30,
-                    Page = 1,
-                    RequiredTags = new string[] { "Sprint" },
-                },
-                MaxSearch = 5*30,
-                MaxResults = 3,
-                DistanceLevelFilter = (levels) =>
-                {
-                    if (onlyBy != null)
+                    Search = new WorkshopSearch.WorkshopSearchParameters()
                     {
-                        levels.RemoveAll(level =>
+                        AppId = WorkshopSearch.Workshop.DistanceAppId,
+                        SearchText = searchText,
+                        SearchType = WorkshopSearch.WorkshopSearchParameters.SearchTypeType.GameFiles,
+                        Sort = WorkshopSearch.WorkshopSearchParameters.SortType.Relevance,
+                        Days = -1,
+                        NumPerPage = 30,
+                        Page = 1,
+                        RequiredTags = new string[] { "Sprint" },
+                    },
+                    MaxSearch = 5 * 30,
+                    MaxResults = 3,
+                    DistanceLevelFilter = (levels) =>
+                    {
+                        if (onlyBy != null)
                         {
-                            return !level.WorkshopItemResult.AuthorName.ToLower().Contains(onlyBy.ToLower());
-                        });
+                            levels.RemoveAll(level =>
+                            {
+                                return !level.WorkshopItemResult.AuthorName.ToLower().Contains(onlyBy.ToLower());
+                            });
+                        }
+                        return autoServer.FilterWorkshopLevels(levels);
                     }
-                    return autoServer.FilterWorkshopLevels(levels);
-                }
-            });
-            yield return search.TaskCoroutine;
-            if (search.HasError)
+                }));
+            }
+            else
             {
-                Server.SayLocalChatMessage(searcher.UnityPlayer, $"Error when searching for \"{searchText}\"");
-                Log.Error($"Error when searching for \"{searchText}\": {search.Error}");
-                yield break;
+                foreach (var tag in RequiredTags)
+                {
+                    searches.Add(new WorkshopSearch.DistanceSearchRetriever(new WorkshopSearch.DistanceSearchParameters()
+                    {
+                        Search = new WorkshopSearch.WorkshopSearchParameters()
+                        {
+                            AppId = WorkshopSearch.Workshop.DistanceAppId,
+                            SearchText = searchText,
+                            SearchType = WorkshopSearch.WorkshopSearchParameters.SearchTypeType.GameFiles,
+                            Sort = WorkshopSearch.WorkshopSearchParameters.SortType.Relevance,
+                            Days = -1,
+                            NumPerPage = 30,
+                            Page = 1,
+                            RequiredTags = new string[] { "Sprint", tag },
+                        },
+                        MaxSearch = 5 * 30,
+                        MaxResults = 3,
+                        DistanceLevelFilter = (levels) =>
+                        {
+                            if (onlyBy != null)
+                            {
+                                levels.RemoveAll(level =>
+                                {
+                                    return !level.WorkshopItemResult.AuthorName.ToLower().Contains(onlyBy.ToLower());
+                                });
+                            }
+                            return autoServer.FilterWorkshopLevels(levels);
+                        }
+                    }));
+                }
             }
 
-            var items = search.Results;
+            var items = new List<WorkshopSearch.DistanceSearchResultItem>();
+            foreach (var search in searches)
+            {
+                yield return search.TaskCoroutine;
+                if (search.HasError)
+                {
+                    Server.SayLocalChatMessage(searcher.UnityPlayer, $"Error when searching for \"{searchText}\"");
+                    Log.Error($"Error when searching for \"{searchText}\": {search.Error}");
+                    yield break;
+                }
+                items.AddRange(search.Results);
+            }
+            
             if (items.Count == 0)
             {
                 Server.SayLocalChatMessage(searcher.UnityPlayer, $"No levels found for \"{searchText}\"" + (onlyBy != null ? $" by \"{onlyBy}\"" : ""));

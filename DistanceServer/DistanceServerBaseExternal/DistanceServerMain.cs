@@ -10,7 +10,7 @@ using UnityEngine;
 
 public class DistanceServerMain : DistanceServerMainBase
 {
-    public static SemanticVersion ServerVersion = new SemanticVersion("0.1.2");
+    public static SemanticVersion ServerVersion = new SemanticVersion("0.1.3");
     public override int CompatibleStarterVersion => 1;
 
     public static NetworkView View;
@@ -275,6 +275,7 @@ public class DistanceServerMain : DistanceServerMainBase
 
     public override void Awake()
     {
+        Debug.LogError("Using Error to force Unity log to show...");
         ExecutableDirectory = new System.IO.DirectoryInfo(UnityEngine.Application.dataPath).Parent;
         ServerDirectory = ExecutableDirectory;
         var launchArgs = Environment.GetCommandLineArgs();

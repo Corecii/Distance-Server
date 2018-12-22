@@ -13,6 +13,7 @@ public class DistancePlayer : IExternalData
 
     public string UnityPlayerGuid = "";
     public PlayerState State = PlayerState.Initializing;
+    public bool Stuck = false;
     public DistanceLevel Level;
     public int LevelId;
     public bool ReceivedInfo = false;

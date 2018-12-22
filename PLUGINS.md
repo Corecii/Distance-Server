@@ -103,6 +103,7 @@ Vote commands can be customized using `VoteCommands.json` in the server config d
 | Setting and Default Value | Description |
 | :------ | :---------- |
 | `"SkipThreshold": 0.7` | The threshold to skip a level. The default, `0.7`, means that 70% or more players must vote to skip the level to move on. Set this to `-1` to disable vote-skipping. |
+| `"RequiredTags": ["None"]` | List of tags. Players can only search for levels that match one of the given tags. If not present, players can vote for any Sprint level. |
 
 All players can use all commands.
 

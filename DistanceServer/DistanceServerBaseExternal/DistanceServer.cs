@@ -86,7 +86,7 @@ public class DistanceServer
         }
     }
 
-    int distanceVersion = 6703;
+    int distanceVersion = Distance::SVNRevision.number_; // Last known good: 6703
     public int DistanceVersion
     {
         get
@@ -250,6 +250,7 @@ public class DistanceServer
             }
             else if (data.request_ == Distance::ServerRequest.LoadLobbyScene)
             {
+                distancePlayer.Stuck = false;
                 distancePlayer.State = DistancePlayer.PlayerState.LoadedLobbyScene;
                 SendLobbyServerInfo(data.networkPlayer_);
                 SendLevelInfo(data.networkPlayer_);
@@ -266,6 +267,7 @@ public class DistanceServer
             }
             else if (data.request_ == Distance::ServerRequest.LoadGameModeScene)
             {
+                distancePlayer.Stuck = false;
                 distancePlayer.State = DistancePlayer.PlayerState.LoadedGameModeScene;
                 if (distancePlayer.LevelId != CurrentLevelId)
                 {
@@ -520,9 +522,19 @@ public class DistanceServer
         {
             foreach (var player in ValidPlayers)
             {
-                if (player.State == DistancePlayer.PlayerState.LoadingGameModeScene)
+                if (!player.Stuck && player.State == DistancePlayer.PlayerState.LoadingGameModeScene)
                 {
                     return false;
+                }
+            }
+        }
+        else
+        {
+            foreach (var player in ValidPlayers)
+            {
+                if (player.State != DistancePlayer.PlayerState.LoadingGameModeScene)
+                {
+                    player.Stuck = true;
                 }
             }
         }
@@ -549,14 +561,17 @@ public class DistanceServer
     {
         foreach (var player in ValidPlayers)
         {
-            if (player.State != DistancePlayer.PlayerState.SubmittedGameModeInfo && player.State != DistancePlayer.PlayerState.CantLoadLevelSoInLobby)
+            if (!player.Stuck && player.State != DistancePlayer.PlayerState.SubmittedGameModeInfo && player.State != DistancePlayer.PlayerState.CantLoadLevelSoInLobby)
             {
                 return;
             }
         }
         foreach (var player in ValidPlayers)
         {
-            player.State = DistancePlayer.PlayerState.StartedMode;
+            if (!player.Stuck)
+            {
+                player.State = DistancePlayer.PlayerState.StartedMode;
+            }
         }
         ModeStartTime = Network.time + 6.0;  // TODO: figure out proper time values
         ModeTimeOffset = -ModeStartTime;
@@ -564,10 +579,13 @@ public class DistanceServer
         StartingMode = false;
         foreach (var player in ValidPlayers)
         {
-            DistanceServerMain.GetEvent<Events.ServerToClient.StartMode>().Fire(
-                player.UnityPlayer,
-                new Distance::Events.ServerToClient.StartMode.Data(ModeStartTime, false)
-            );
+            if (!player.Stuck)
+            {
+                DistanceServerMain.GetEvent<Events.ServerToClient.StartMode>().Fire(
+                    player.UnityPlayer,
+                    new Distance::Events.ServerToClient.StartMode.Data(ModeStartTime, false)
+                );
+            }
         }
         OnModeStartedEvent.Fire();
     }
