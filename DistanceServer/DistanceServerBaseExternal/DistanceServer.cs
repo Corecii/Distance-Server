@@ -532,7 +532,7 @@ public class DistanceServer
         {
             foreach (var player in ValidPlayers)
             {
-                if (player.State != DistancePlayer.PlayerState.LoadingGameModeScene)
+                if (player.State == DistancePlayer.PlayerState.LoadingGameModeScene)
                 {
                     player.Stuck = true;
                 }

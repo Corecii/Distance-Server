@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-class CarLogicBridge : Distance::CarLogic
+public class CarLogicBridge : Distance::CarLogic
 {
     public CarLogicBridge()
     {

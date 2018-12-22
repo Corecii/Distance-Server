@@ -1,10 +1,11 @@
 {
 	"ServerName": "Test Server",
 	"Port": 45671,
-	"LoadWorkshopLevels": true,
+	"LoadWorkshopLevels": false,
 	"ReportToMasterServer": false,
 	"WelcomeMessage": "Hello, $player",
-	"LevelTimeout": 60.0/*,
+	"LevelTimeout": 60.0,
+	"IdleTimeout": 10.0,
 	"Workshop":[
 		{
 			"Search":"",
@@ -38,5 +39,5 @@
 			"Tags":["Sprint"],
 			"Count":200
 		}
-	]*/
+	]
 }

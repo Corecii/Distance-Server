@@ -203,6 +203,7 @@ public class DistanceCar : DistanceCarBase, IExternalData
         }
 
         Rigidbody = networker.GetComponent<Rigidbody>();
+        CarDirectives = CarStateTransceiver.CarLogicBridge.CarDirectives_;
 
         Log.WriteLine("Created DistanceCarNetworker");
 
