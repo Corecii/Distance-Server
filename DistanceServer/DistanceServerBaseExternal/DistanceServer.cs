@@ -522,7 +522,7 @@ public class DistanceServer
         {
             foreach (var player in ValidPlayers)
             {
-                if (!player.Stuck && player.State == DistancePlayer.PlayerState.LoadingGameModeScene)
+                if (!player.Stuck && (player.State != DistancePlayer.PlayerState.SubmittedGameModeInfo || player.LevelId != CurrentLevelId) && player.State != DistancePlayer.PlayerState.CantLoadLevelSoInLobby)
                 {
                     return false;
                 }
@@ -532,7 +532,7 @@ public class DistanceServer
         {
             foreach (var player in ValidPlayers)
             {
-                if (player.State == DistancePlayer.PlayerState.LoadingGameModeScene)
+                if (player.State != DistancePlayer.PlayerState.CantLoadLevelSoInLobby && (player.State != DistancePlayer.PlayerState.SubmittedGameModeInfo || player.LevelId != CurrentLevelId))
                 {
                     player.Stuck = true;
                 }
@@ -568,7 +568,7 @@ public class DistanceServer
         }
         foreach (var player in ValidPlayers)
         {
-            if (!player.Stuck)
+            if (!player.Stuck && player.State == DistancePlayer.PlayerState.SubmittedGameModeInfo)
             {
                 player.State = DistancePlayer.PlayerState.StartedMode;
             }
@@ -579,7 +579,7 @@ public class DistanceServer
         StartingMode = false;
         foreach (var player in ValidPlayers)
         {
-            if (!player.Stuck)
+            if (player.State == DistancePlayer.PlayerState.StartedMode)
             {
                 DistanceServerMain.GetEvent<Events.ServerToClient.StartMode>().Fire(
                     player.UnityPlayer,
