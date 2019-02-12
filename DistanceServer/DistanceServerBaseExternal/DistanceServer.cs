@@ -216,6 +216,7 @@ public class DistanceServer
 
     public void Init()
     {
+        MasterServer.dedicatedServer = true;
         DistanceServerMain.GetEvent<Events.ClientToServer.SubmitPlayerInfo>().Connect(data =>
         {
             var player = GetDistancePlayer(data.sender_);
@@ -239,14 +240,7 @@ public class DistanceServer
             if (data.request_ == Distance::ServerRequest.SubmitClientInfo)  // TODO: check if request was actually completed for security
             {
                 distancePlayer.State = DistancePlayer.PlayerState.Initialized;
-                if (IsInLobby)
-                {
-                    SendPlayerToLobby(data.networkPlayer_);
-                }
-                else
-                {
-                    SendPlayerToLevel(data.networkPlayer_);
-                }
+                SendPlayerToCurrentLocation(data.networkPlayer_);
             }
             else if (data.request_ == Distance::ServerRequest.LoadLobbyScene)
             {
@@ -366,6 +360,10 @@ public class DistanceServer
         {
             AttemptToStartLevel();
         }
+        else if (StartingMode && StartingModeTime != -1.0 && Network.time - StartingModeTime >= StartingModeTimeout)
+        {
+            AttemptToStartMode();
+        }
     }
 
     public LocalEventEmpty OnServerInitializedEvent = new LocalEventEmpty();
@@ -444,10 +442,23 @@ public class DistanceServer
         );
     }
 
+    public void SendPlayerToCurrentLocation(NetworkPlayer player)
+    {
+        if (IsInLobby)
+        {
+            SendPlayerToLobby(player);
+        }
+        else
+        {
+            SendPlayerToLevel(player);
+        }
+    }
+
     public void SendPlayerToLobby(NetworkPlayer player)
     {
         var distancePlayer = GetDistancePlayer(player);
         distancePlayer.State = DistancePlayer.PlayerState.LoadingLobbyScene;
+        distancePlayer.LevelId = CurrentLevelId;
         DistanceServerMain.GetEvent<Events.ServerToClient.Request>().Fire(
             player,
             new Distance::Events.ServerToClient.Request.Data(Distance::ServerRequest.LoadLobbyScene)
@@ -465,6 +476,7 @@ public class DistanceServer
     public LocalEventEmpty OnLobbyStartedEvent = new LocalEventEmpty();
     public void StartLobby()
     {
+        CurrentLevelId++;
         ModeTimeOffset = 0;
         IsInLobby = true;
         foreach (var player in ValidPlayers)
@@ -477,7 +489,6 @@ public class DistanceServer
 
     public void SendPlayerToLevel(NetworkPlayer player)
     {
-
         SendLevelInfo(player);
         var distancePlayer = GetDistancePlayer(player);
         if (!UpdateLevelCompatabilityStatus(distancePlayer))
@@ -518,11 +529,13 @@ public class DistanceServer
 
     public bool AttemptToStartLevel()
     {
+        
         if (StartingLevelTime == -1.0 || Network.time - StartingLevelTime < StartingLevelTimeout)
         {
+            // Wait for any loading players to stop loading
             foreach (var player in ValidPlayers)
             {
-                if (!player.Stuck && (player.State != DistancePlayer.PlayerState.SubmittedGameModeInfo || player.LevelId != CurrentLevelId) && player.State != DistancePlayer.PlayerState.CantLoadLevelSoInLobby)
+                if (!player.Stuck && player.IsLoading())
                 {
                     return false;
                 }
@@ -532,7 +545,7 @@ public class DistanceServer
         {
             foreach (var player in ValidPlayers)
             {
-                if (player.State != DistancePlayer.PlayerState.CantLoadLevelSoInLobby && (player.State != DistancePlayer.PlayerState.SubmittedGameModeInfo || player.LevelId != CurrentLevelId))
+                if (player.IsLoading())
                 {
                     player.Stuck = true;
                 }
@@ -546,6 +559,7 @@ public class DistanceServer
             player.Car = null;
         }
         StartingMode = true;
+        StartingModeTime = Network.time;
         SendAllPlayersToLevel();
         OnLevelStartedEvent.Fire();
         if (ValidPlayers.Count == 0)
@@ -556,14 +570,29 @@ public class DistanceServer
     }
 
     public bool StartingMode = false;
+    public double StartingModeTime = -1.0;
+    public double StartingModeTimeout = 30.0;
     public LocalEventEmpty OnModeStartedEvent = new LocalEventEmpty();
     public void AttemptToStartMode()
     {
-        foreach (var player in ValidPlayers)
+        if (StartingModeTime == -1.0 || Network.time - StartingModeTime < StartingModeTimeout)
         {
-            if (!player.Stuck && player.State != DistancePlayer.PlayerState.SubmittedGameModeInfo && player.State != DistancePlayer.PlayerState.CantLoadLevelSoInLobby)
+            foreach (var player in ValidPlayers)
             {
-                return;
+                if (!player.Stuck && !player.HasLoadedLevel(true))
+                {
+                    return;
+                }
+            }
+        }
+        else
+        {
+            foreach (var player in ValidPlayers)
+            {
+                if (!player.HasLoadedLevel(true))
+                {
+                    player.Stuck = true;
+                }
             }
         }
         foreach (var player in ValidPlayers)

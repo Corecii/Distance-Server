@@ -105,6 +105,30 @@ public class DistancePlayer : IExternalData
         UnityPlayerGuid = guid;
     }
 
+    public bool IsLoading()
+    {
+        return State == PlayerState.Initialized || State == PlayerState.Initialized || State == PlayerState.LoadingGameModeScene || State == PlayerState.LoadingLobbyScene;
+    }
+
+    public bool HasLoadedLevel(bool includeLobbyStuck = true)
+    {
+        var server = DistanceServerMain.Instance.Server;
+        var levelId = server.CurrentLevelId;
+        if (LevelId != levelId)
+        {
+            return false;
+        }
+        if (server.IsInLobby)
+        {
+            return State == PlayerState.LoadedLobbyScene || State == PlayerState.SubmittedLobbyInfo || State == PlayerState.WaitingForCompatibilityStatus;
+        }
+        if (includeLobbyStuck && State == PlayerState.CantLoadLevelSoInLobby)
+        {
+            return true;
+        }
+        return State == PlayerState.LoadedGameModeScene || State == PlayerState.SubmittedGameModeInfo || State == PlayerState.StartedMode;
+    }
+
     public bool Valid
     {
         get

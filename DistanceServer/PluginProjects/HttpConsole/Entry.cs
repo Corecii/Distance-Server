@@ -193,7 +193,8 @@ namespace HttpConsole
                     output += $"{(Server.IsInLobby ? "Lobby" : Server.CurrentLevel.GameMode)}\n";
                     output += $"Port {Server.Port}\n";
                     output += $"{(Server.ReportToMasterServer ? "Reporting to Master Server" : "Not Reporting to Master Server")}\n";
-                    output += $"{(Server.StartingLevel ? "Changing levels" : "On level")}\n\n";
+                    output += $"{(Server.StartingLevel ? "Changing levels" : "On level")}\n";
+                    output += $"Network.time: {Network.time}\n\n";
 
                     output += $"Level:\n{Server.CurrentLevelId}\n{Server.CurrentLevel.Name}\n{Server.CurrentLevel.RelativeLevelPath}\n{Server.CurrentLevel.LevelVersion}\n{Server.CurrentLevel.WorkshopFileId}\n{Server.CurrentLevel.GameMode}\n\n";
 
@@ -210,10 +211,17 @@ namespace HttpConsole
                         {
                             output += $"\t{(player.Ready ? "Ready" : "NoRdy")} : On level {player.LevelId}\n";
                             output += $"\t{player.LevelCompatability} {player.LevelCompatibilityInfo.LevelCompatibilityId} {player.LevelCompatibilityInfo.HasLevel} {player.LevelCompatibilityInfo.LevelVersion}\n";
-                            output += $"\t{(player.Car.Finished ? player.Car.FinishType.ToString() : "NotFinished")} {player.Car.FinishData}\n";
-                            output += $"\t{player.Car.PlayerViewId} {player.Car.CarViewId1} {player.Car.CarViewId2}\n";
-                            output += $"\t{player.Car.CarName} {(player.Car.Alive ? "Alive" : "Dead")}\n";
-                            output += $"\t{(player.Car.WingsOpen ? "Flying" : "Driving")}\n";
+                            if (player.Car == null)
+                            {
+                                output += $"\tNo Car\n";
+                            }
+                            else
+                            {
+                                output += $"\t{(player.Car.Finished ? player.Car.FinishType.ToString() : "NotFinished")} {player.Car.FinishData}\n";
+                                output += $"\t{player.Car.PlayerViewId} {player.Car.CarViewId1} {player.Car.CarViewId2}\n";
+                                output += $"\t{player.Car.CarName} {(player.Car.Alive ? "Alive" : "Dead")}\n";
+                                output += $"\t{(player.Car.WingsOpen ? "Flying" : "Driving")}\n";
+                            }
                         }
                     }
 
