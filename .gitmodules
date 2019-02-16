@@ -1,9 +1,12 @@
 [submodule "NetworkDebugger/Spectrum"]
 	path = NetworkDebugger/Spectrum
 	url = https://github.com/Ciastex/Spectrum
+	ignore = dirty
 [submodule "NetworkDebugger/Harmony"]
 	path = NetworkDebugger/Harmony
 	url = https://github.com/pardeike/Harmony
+	ignore = dirty
 [submodule "Patcher/dnlib"]
 	path = Patcher/dnlib
 	url = https://github.com/0xd4d/dnlib
+	ignore = dirty

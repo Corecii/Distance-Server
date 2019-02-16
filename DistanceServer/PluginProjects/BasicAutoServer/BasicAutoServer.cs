@@ -232,6 +232,11 @@ namespace BasicAutoServer
 
         void AttemptToAdvanceLevel()
         {
+            if (Server.StartingLevel || !Server.HasModeStarted)
+            {
+                Log.Debug($"Mode not started, not advancing normally.");
+                return;
+            }
             if (Server.ValidPlayers.Count == 0)
             {
                 Log.Debug($"No players, not advancing normally.");
@@ -248,6 +253,7 @@ namespace BasicAutoServer
             }
             if (canAdvance)
             {
+                Log.Debug($"Advancing because all players with cars have finished.");
                 Server.SayChatMessage(true, "All players finished. Advancing to the next level in 10 seconds.");
                 AdvanceLevel();
             }
