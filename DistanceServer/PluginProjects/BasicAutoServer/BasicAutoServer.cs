@@ -16,7 +16,7 @@ namespace BasicAutoServer
         public override int Priority => -5;
         public override SemanticVersion ServerVersion => new SemanticVersion("0.1.3");
 
-        enum Stage
+        public enum Stage
         {
             Starting,
             Started,
@@ -24,14 +24,14 @@ namespace BasicAutoServer
             AllFinished,
         }
         
-        int currentLevelIndex = 0;
-        Stage stage = 0;
+        public int currentLevelIndex = 0;
+        public Stage stage = 0;
 
         double allFinishedAt = 0;
 
         ///
 
-        List<DistanceLevel> OverridePlaylist = new List<DistanceLevel>();
+        public List<DistanceLevel> OverridePlaylist = new List<DistanceLevel>();
 
         public delegate bool FilterWorkshopSearchDelegate(List<DistanceSearchResultItem> results);
         List<FilterWorkshopSearchDelegate> Filters = new List<FilterWorkshopSearchDelegate>();
@@ -51,6 +51,12 @@ namespace BasicAutoServer
 
         ///
 
+        public delegate string GetLinkCode(DistancePlayer player);
+
+        public GetLinkCode LinkCodeGetter = null;
+
+        ///
+
         string MasterServerGameModeOverride = null;
         string ServerName = "Auto Server";
         int MaxPlayers = 24;
@@ -58,11 +64,11 @@ namespace BasicAutoServer
         bool ReportToMasterServer = true;
 
         bool LoadWorkshopLevels = false;
-        double IdleTimeout = 60;
-        double LevelTimeout = 7 * 60;
-        string WelcomeMessage = null;
+        public double IdleTimeout = 60;
+        public double LevelTimeout = 7 * 60;
+        public string WelcomeMessage = null;
 
-        List<DistanceLevel> Playlist;
+        public List<DistanceLevel> Playlist;
 
         public void ReadSettings()
         {
@@ -145,16 +151,22 @@ namespace BasicAutoServer
             {
                 Server.OnPlayerValidatedEvent.Connect(player =>
                 {
+                    var message = WelcomeMessage;
+                    message = message.Replace("$player", player.Name);
+                    if (message.Contains("$linkcode") && LinkCodeGetter != null)
+                    {
+                        message.Replace("$linkcode", LinkCodeGetter(player));
+                    }
                     if (!Server.HasModeStarted || player.Car != null)
                     {
-                        Server.SayLocalChatMessage(player.UnityPlayer, WelcomeMessage.Replace("$player", player.Name));
+                        Server.SayLocalChatMessage(player.UnityPlayer, message);
                     }
                     else
                     {
                         LocalEvent<DistanceCar>.EventConnection connection = null;
                         connection = player.OnCarAddedEvent.Connect(car =>
                         {
-                            Server.SayLocalChatMessage(player.UnityPlayer, WelcomeMessage.Replace("$player", player.Name));
+                            Server.SayLocalChatMessage(player.UnityPlayer, message);
                             connection.Disconnect();
                         });
                     }
@@ -216,18 +228,21 @@ namespace BasicAutoServer
 
         System.Collections.IEnumerator DoLoadWorkshopLevels()
         {
-            Server.SayChatMessage(true, "Generating playlist from Steam Workshop...");
-            yield return DistanceServerMainStarter.Instance.StartCoroutine(UpdatePlaylist());
+            // Start players on campaign maps while the workshop maps load
             StartAutoServer();
             NextLevel();
+            Server.SayChatMessage(true, "Generating playlist from Steam Workshop...");
             Server.OnLevelStartInitiatedEvent.Connect(() =>
             {
                 if (currentLevelIndex == Playlist.Count - 1)
                 {
-                    // update playlist on last level
+                    // Update the playlist on the last level
                     DistanceServerMainStarter.Instance.StartCoroutine(UpdatePlaylist());
                 }
             });
+            // Load maps, but don't wait on them to finish -- it might error!
+            DistanceServerMainStarter.Instance.StartCoroutine(UpdatePlaylist());
+            yield break;
         }
 
         void AttemptToAdvanceLevel()

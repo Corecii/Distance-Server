@@ -86,7 +86,7 @@ public class DistanceServer
         }
     }
 
-    int distanceVersion = Distance::SVNRevision.number_; // Last known good: 6703
+    int distanceVersion = Distance::SVNRevision.number_; // Last known good: 6842
     public int DistanceVersion
     {
         get
@@ -360,7 +360,7 @@ public class DistanceServer
         {
             AttemptToStartLevel();
         }
-        else if (StartingMode && StartingModeTime != -1.0 && Network.time - StartingModeTime >= StartingModeTimeout)
+        else if (StartingMode && StartingModeTime != -1.0 && Network.time - StartingModeTime >= StartingModeTimeout && !StartingModeDelay)
         {
             AttemptToStartMode();
         }
@@ -570,6 +570,7 @@ public class DistanceServer
     }
 
     public bool StartingMode = false;
+    public bool StartingModeDelay = false;
     public double StartingModeTime = -1.0;
     public double StartingModeTimeout = 30.0;
     public LocalEventEmpty OnModeStartedEvent = new LocalEventEmpty();
@@ -585,14 +586,21 @@ public class DistanceServer
                 }
             }
         }
-        else
+        StartingModeDelay = true;
+        // StartModeAfterDelay is a fix for the mode sometimes starting so early that the loading screen won't disappear
+        DistanceServerMainStarter.Instance.StartCoroutine(StartModeAfterDelay(5.0f));
+    }
+
+    public System.Collections.IEnumerator StartModeAfterDelay(float delayTime)
+    {
+        StartingMode = false;
+        StartingModeDelay = false;
+
+        foreach (var player in ValidPlayers)
         {
-            foreach (var player in ValidPlayers)
+            if (!player.HasLoadedLevel(true))
             {
-                if (!player.HasLoadedLevel(true))
-                {
-                    player.Stuck = true;
-                }
+                player.Stuck = true;
             }
         }
         foreach (var player in ValidPlayers)
@@ -602,10 +610,12 @@ public class DistanceServer
                 player.State = DistancePlayer.PlayerState.StartedMode;
             }
         }
-        ModeStartTime = Network.time + 6.0;  // TODO: figure out proper time values
+
+        ModeStartTime = Network.time + 12.0;  // Shift start sooner/later
         ModeTimeOffset = -ModeStartTime;
         HasModeStarted = true;
-        StartingMode = false;
+
+        yield return new WaitForSeconds(delayTime);
         foreach (var player in ValidPlayers)
         {
             if (player.State == DistancePlayer.PlayerState.StartedMode)

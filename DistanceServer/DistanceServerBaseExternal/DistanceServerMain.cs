@@ -277,6 +277,8 @@ public class DistanceServerMain : DistanceServerMainBase
     {
         Debug.LogError("Using Error to force Unity log to show...");
         ExecutableDirectory = new System.IO.DirectoryInfo(UnityEngine.Application.dataPath).Parent;
+        Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
+        Debug.unityLogger.filterLogType = LogType.Log;
         ServerDirectory = ExecutableDirectory;
         var launchArgs = Environment.GetCommandLineArgs();
         if (launchArgs.Length > 0)

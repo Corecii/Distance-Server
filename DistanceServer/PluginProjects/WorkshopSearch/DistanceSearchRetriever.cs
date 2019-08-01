@@ -56,85 +56,71 @@ namespace WorkshopSearch
 
         public System.Collections.IEnumerator Retrieve()
         {
-            Log.SetDebugLineEnabled("Retrieve", false);
-            Log.DebugLine("Retrieve", 0);
+            Log.SetDebugLineEnabled("Retrieve", true);
             var search = Parameters.Search;
             var searchCount = 0;
-            Log.DebugLine("Retrieve");
             while ((Parameters.MaxSearch <= 0 || searchCount < Parameters.MaxSearch) && (Parameters.MaxResults <= 0 || Results.Count < Parameters.MaxResults))
             {
-                Log.DebugLine("Retrieve", 2);
+                Log.DebugLine("Retrieve", 1);
                 var searchResult = search.Search();
-                Log.DebugLine("Retrieve");
                 yield return searchResult.TaskCoroutine;
-                Log.DebugLine("Retrieve");
                 if (searchResult.HasError)
                 {
-                    Log.DebugLine("Retrieve", 5);
                     Error = searchResult.Error;
                     Finished = true;
-                    Log.DebugLine("Retrieve");
                     yield break;
                 }
-                Log.DebugLine("Retrieve", 7);
+                Log.DebugLine("Retrieve");
                 var levelIds = new List<string>();
                 foreach (var item in searchResult.Result.Items)
                 {
-                    Log.DebugLine("Retrieve", 8);
                     levelIds.Add(item.PublishedFileId);
                 }
-                Log.DebugLine("Retrieve", 9);
+                Log.DebugLine("Retrieve");
                 var levelsResult = DistanceLevel.RetrieveWorkshopLevel(levelIds);
-                Log.DebugLine("Retrieve");
                 yield return levelsResult.WebCoroutine;
-                Log.DebugLine("Retrieve");
                 var searchResults = new List<DistanceSearchResultItem>();
                 for (int i = 0; i < searchResult.Result.Items.Length; i++)
                 {
-                    Log.DebugLine("Retrieve", 12);
                     searchCount++;
                     if (Parameters.MaxSearch > 0 && searchCount > Parameters.MaxSearch)
                     {
                         break;
                     }
-                    searchResults.Add(new DistanceSearchResultItem(searchResult.Result.Items[i], levelsResult.Levels[i]));
-                    Log.DebugLine("Retrieve", 13);
+                    var item = searchResult.Result.Items[i];
+                    if (levelsResult.LevelsByPublishedFileId.ContainsKey(item.PublishedFileId))
+                    {
+                        searchResults.Add(new DistanceSearchResultItem(searchResult.Result.Items[i], levelsResult.LevelsByPublishedFileId[item.PublishedFileId]));
+                    }
                 }
-                Log.DebugLine("Retrieve", 14);
+                Log.DebugLine("Retrieve");
                 var cont = true;
                 if (Parameters.DistanceLevelFilter != null)
                 {
-                    Log.DebugLine("Retrieve", 15);
                     cont = Parameters.DistanceLevelFilter(searchResults);
-                    Log.DebugLine("Retrieve");
                 }
-                Log.DebugLine("Retrieve", 17);
+                Log.DebugLine("Retrieve");
                 if (Parameters.MaxResults > 0)
                 {
-                    Log.DebugLine("Retrieve", 18);
-                    var max = Results.Count - Parameters.MaxResults + searchResults.Count;
+                    var max = Results.Count + searchResults.Count - Parameters.MaxResults;
                     for (int i = 0; i < max; i++)
                     {
-                        Log.DebugLine("Retrieve", 19);
                         searchResults.RemoveAt(searchResults.Count - 1);
                     }
                 }
-                Log.DebugLine("Retrieve", 20);
+                Log.DebugLine("Retrieve");
                 Results.AddRange(searchResults);
                 Log.DebugLine("Retrieve");
                 if (!searchResult.Result.HasNextPage || !cont)
                 {
-                    Log.DebugLine("Retrieve", 22);
                     break;
                 }
                 else
                 {
-                    Log.DebugLine("Retrieve", 23);
                     search = searchResult.Result.NextPage;
                 }
-                Log.DebugLine("Retrieve", 24);
+                Log.DebugLine("Retrieve");
             }
-            Log.DebugLine("Retrieve", 25);
             Finished = true;
             yield break;
         }

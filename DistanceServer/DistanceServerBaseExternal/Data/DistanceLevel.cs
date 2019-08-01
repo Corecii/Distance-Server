@@ -87,7 +87,7 @@ public class DistanceLevel : IExternalData
     {
         public List<string> WorkshopLevelIds;
         public Coroutine WebCoroutine = null;
-        public DistanceLevel[] Levels;
+        public Dictionary<string, DistanceLevel> LevelsByPublishedFileId = new Dictionary<string, DistanceLevel>();
         public List<DistanceLevel> ValidLevels = new List<DistanceLevel>();
         public string Error = null;
         public bool HasError { get { return Error != null; } }
@@ -98,7 +98,6 @@ public class DistanceLevel : IExternalData
         {
             WorkshopLevelIds = workshopLevelIds;
             DefaultGameMode = defaultGameMode;
-            Levels = new DistanceLevel[0];
             if (startCoroutine)
             {
                 StartCoroutine();
@@ -158,8 +157,6 @@ public class DistanceLevel : IExternalData
                 yield break;
             }
 
-            Levels = new DistanceLevel[WorkshopLevelIds.Count];
-
             var fileDetails = (object[])response["publishedfiledetails"];
             var index = 0;
             foreach (var detailBase in fileDetails)
@@ -169,7 +166,22 @@ public class DistanceLevel : IExternalData
                 {
                     continue;
                 }
-
+                if (!detail.ContainsKey("publishedfileid") || detail["publishedfileid"].GetType() != typeof(string) || (string)detail["publishedfileid"] == string.Empty)
+                {
+                    continue;
+                }
+                if (detail["title"].GetType() != typeof(string))
+                {
+                    continue;
+                }
+                if (detail["creator"].GetType() != typeof(string) || (string)detail["creator"] == string.Empty)
+                {
+                    continue;
+                }
+                if (detail["filename"].GetType() != typeof(string) || (string)detail["filename"] == "")
+                {
+                    continue;
+                }
                 string levelVersion = "";
                 if (detail.ContainsKey("time_updated"))
                 {
@@ -190,18 +202,18 @@ public class DistanceLevel : IExternalData
                         }
                     }
                 }
-
-                Levels[index] = new DistanceLevel()
+                var level = new DistanceLevel()
                 {
                     Name = (string)detail["title"],
                     RelativeLevelPath = $"WorkshopLevels/{(string)detail["creator"]}/{(string)detail["filename"]}",
                     // Example: "WorkshopLevels/76561198145035078/a digital frontier.bytes"
                     LevelVersion = levelVersion,
-                    WorkshopFileId = WorkshopLevelIds[index],
+                    WorkshopFileId = (string)detail["publishedfileid"],
                     GameMode = DefaultGameMode,
                     SupportedModes = supportedModes.ToArray(),
                 };
-                ValidLevels.Add(Levels[index]);
+                ValidLevels.Add(level);
+                LevelsByPublishedFileId.Add(level.WorkshopFileId, level);
                 index++;
             }
             Finished = true;

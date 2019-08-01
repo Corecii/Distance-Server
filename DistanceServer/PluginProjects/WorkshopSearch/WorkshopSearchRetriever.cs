@@ -345,7 +345,7 @@ namespace WorkshopSearch
         {
             var url = Parameters.ConstructUrl();
 
-            Log.Debug($"Url: {url}");
+            //Log.Debug($"Url: {url}");
             var request = new UnityWebRequest(url);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.method = UnityWebRequest.kHttpVerbGET;
@@ -361,7 +361,7 @@ namespace WorkshopSearch
 
             try
             {
-                Log.Debug($"Result:\n{request.downloadHandler.text}");
+                //Log.Debug($"Result:\n{request.downloadHandler.text}");
 
                 var htmlDoc = new HtmlDocument();
                 htmlDoc.LoadHtml(request.downloadHandler.text);
