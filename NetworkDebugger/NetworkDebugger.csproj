@@ -33,11 +33,15 @@
   <ItemGroup>
     <Reference Include="0Harmony, Version=1.0.9.1, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>Harmony\Harmony\bin\Release\0Harmony.dll</HintPath>
+      <HintPath>..\..\..\..\Steam\steamapps\common\Distance\Distance_Data\Spectrum\0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp, Version=9.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Spectrum.API, Version=1.0.51.5909, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\Steam\steamapps\common\Distance\Distance_Data\Spectrum\Spectrum.API.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="UnityEngine">
@@ -48,15 +52,10 @@
     <Compile Include="Entry.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="Spectrum\Spectrum.API\Spectrum.API.csproj">
-      <Project>{a9cfd86d-1604-4c80-b02b-e60ad98ba86f}</Project>
-      <Name>Spectrum.API</Name>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>xcopy "$(TargetDir)$(TargetName).*" "$(SolutionDir)NetworkDebugger" /Y</PostBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

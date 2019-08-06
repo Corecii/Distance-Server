@@ -53,15 +53,19 @@ namespace HttpInfoServer
         public double IdleTimeout;
         public double LevelTimeout;
         public string WelcomeMessage;
+        public double LevelEndTime;
     }
 
     class VotingJsonData
     {
         public double SkipThreshold;
         public bool HasSkipped;
+        public double ExtendThreshold;
+        public double ExtendTime;
         public Dictionary<string, double> LeftAt;
         public Dictionary<string, DistanceLevel> PlayerVotes;
         public string[] SkipVotes;
+        public string[] ExtendVotes;
     }
 
     class LevelJsonData
@@ -125,10 +129,11 @@ namespace HttpInfoServer
             for (int i = 0; i < headers.Count; i++)
             {
                 var key = headers.GetKey(i);
+                Log.Debug($"Header key: '{key}' Header value: '{headers.Get(i)}'");
                 if (key == "Authorization")
                 {
                     var value = headers.Get(i);
-                    if (value != null && value.Length > 8 && value.Substring(0, 8) == "Bearer: " && Plugin.PrivateModeTokens.Contains(value.Substring(8)))
+                    if (value != null && value.Length > 7 && value.Substring(0, 7) == "Bearer " && Plugin.PrivateModeTokens.Contains(value.Substring(7)))
                     {
                         return true;
                     }
@@ -191,6 +196,15 @@ namespace HttpInfoServer
             else if (location == "/chat")
             {
                 RespondChat();
+            }
+            else
+            {
+                Context.Response.StatusCode = 404;
+                Context.Response.StatusDescription = "Not Found";
+                Response = (new JsonFx.Json.JsonWriter()).Write(new
+                {
+                    ErrorCode = 404,
+                });
             }
         }
         internal void RespondChat()
@@ -292,7 +306,7 @@ namespace HttpInfoServer
                 var player = Plugin.Manager.Server.GetDistancePlayer(guid);
                 if (player != null)
                 {
-                    Plugin.Manager.Server.SayLocalChatMessage(player.UnityPlayer, "Your game session has been automatically linked with a web session. You can now vote and chat from your web session.\nIf this wasn't you, type [00FFFF]/unlink[-]");
+                    Plugin.Manager.Server.SayLocalChatMessage(player.UnityPlayer, "Your game session has been automatically linked with a web session. You can now vote and chat from the website.\nIf this wasn't you, type [00FFFF]/unlink[-]");
                 }
             }
         }
@@ -420,12 +434,7 @@ namespace HttpInfoServer
                 jsonPlayer.Valid = player.Valid;
                 if (IsPrivateMode)
                 {
-                    Log.Debug($"IsPrivateMode!: {IsPrivateMode}");
                     jsonPlayer.UnityPlayer = player.UnityPlayer;
-                }
-                else
-                {
-                    Log.Debug($"NOT IsPrivateMode!: {IsPrivateMode}");
                 }
                 if (player.Car != null)
                 {
@@ -462,6 +471,7 @@ namespace HttpInfoServer
                 autoServerJson.IdleTimeout = autoServer.IdleTimeout;
                 autoServerJson.LevelTimeout = autoServer.LevelTimeout;
                 autoServerJson.WelcomeMessage = autoServer.WelcomeMessage;
+                autoServerJson.LevelEndTime = DistanceServerMain.NetworkTimeToUnixTime(autoServer.LevelEndTime);
             }
 
             VotingJsonData votingJsonData = null;
@@ -471,9 +481,12 @@ namespace HttpInfoServer
                 votingJsonData = new VotingJsonData();
                 votingJsonData.SkipThreshold = voteCommands.SkipThreshold;
                 votingJsonData.HasSkipped = voteCommands.HasSkipped;
+                votingJsonData.ExtendThreshold = voteCommands.ExtendThreshold;
+                votingJsonData.ExtendTime = voteCommands.ExtendTime;
                 votingJsonData.LeftAt = voteCommands.LeftAt;
                 votingJsonData.PlayerVotes = voteCommands.PlayerVotes;
                 votingJsonData.SkipVotes = voteCommands.SkipVotes.ToArray();
+                votingJsonData.ExtendVotes = voteCommands.ExtendVotes.ToArray();
             }
 
             var chatLog = new List<ChatJsonData>();
@@ -528,8 +541,8 @@ namespace HttpInfoServer
         int PortHttps = 45684;
         internal string HelpTextWebsite = null;
         internal bool PublicMode = true;
-        internal List<string> PrivateModeIps = new List<string>();
-        internal List<string> PrivateModeTokens = new List<string>();
+        internal string[] PrivateModeIps = new string[0];
+        internal string[] PrivateModeTokens = new string[0];
 
         //a forward link involves inputting a 6-digit code on the website to link the web session to the matching guid
         //a reverse link involves inputting a 6-digit code in the game to link the game guid to the matching web session
@@ -562,13 +575,13 @@ namespace HttpInfoServer
                 TryGetValue(dictionary, "PrivateModeIps", ref PrivateModeIps);
                 TryGetValue(dictionary, "PrivateModeTokens", ref PrivateModeTokens);
                 Log.Info("Loaded settings from HttpInfoServer.json");
-                Log.Info($"{PrivateModeIps.Count} Private Mode IPs");
             }
             catch (Exception e)
             {
                 Log.Error($"Couldn't read HttpInfoServer.json. Is your json malformed?\n{e}");
 
             }
+            Log.Info($"{PrivateModeIps.Length} PrivateModeIps; {PrivateModeTokens.Length} PrivateModeTokens;");
         }
 
         bool TryGetValue<T>(Dictionary<string, object> dict, string name, ref T value)
@@ -731,6 +744,7 @@ namespace HttpInfoServer
             var autoServer = Manager.GetPlugin<BasicAutoServer.BasicAutoServer>();
             if (autoServer != null)
             {
+                Log.Debug("Set LinkCodeGetter in BasicAutoServer");
                 autoServer.LinkCodeGetter = player =>
                 {
                     return GetOrGenerateCode(player.UnityPlayerGuid);

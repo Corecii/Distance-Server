@@ -23,6 +23,7 @@ public class LocalEventEmpty
     }
     public virtual EventConnection Connect(int priority, LocalEventHandler handler)
     {
+        // Lower priority comes first
         var connection = new EventConnection(this, handler, priority);
         subscriptions.Add(connection);
         subscriptions.Sort((a, b) => a.Priority - b.Priority);

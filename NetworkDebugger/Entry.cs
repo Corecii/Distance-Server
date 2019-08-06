@@ -15,7 +15,6 @@ namespace Corecii.NetworkDebugger
         public string FriendlyName => "Network Debugger";
         public string Author => "Corecii";
         public string Contact => "SteamID: Corecii; Discord: Corecii#3019";
-        public APILevel CompatibleAPILevel => APILevel.XRay;
         public static string PluginVersion = "Version C.1.1.0";
 
         public static List<Type> ClientToClientDataList;

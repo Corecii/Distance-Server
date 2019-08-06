@@ -5,10 +5,6 @@ VisualStudioVersion = 15.0.27703.2026
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkDebugger", "NetworkDebugger.csproj", "{7EE4C9FC-1060-486E-86E4-5FB8FEF570FF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Harmony", "Harmony\Harmony\Harmony.csproj", "{68C454DE-0C05-4C45-9054-2CB68C926178}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spectrum.API", "Spectrum\Spectrum.API\Spectrum.API.csproj", "{A9CFD86D-1604-4C80-B02B-E60AD98BA86F}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -19,14 +15,6 @@ Global
 		{7EE4C9FC-1060-486E-86E4-5FB8FEF570FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7EE4C9FC-1060-486E-86E4-5FB8FEF570FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7EE4C9FC-1060-486E-86E4-5FB8FEF570FF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{68C454DE-0C05-4C45-9054-2CB68C926178}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{68C454DE-0C05-4C45-9054-2CB68C926178}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{68C454DE-0C05-4C45-9054-2CB68C926178}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{68C454DE-0C05-4C45-9054-2CB68C926178}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A9CFD86D-1604-4C80-B02B-E60AD98BA86F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A9CFD86D-1604-4C80-B02B-E60AD98BA86F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A9CFD86D-1604-4C80-B02B-E60AD98BA86F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A9CFD86D-1604-4C80-B02B-E60AD98BA86F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

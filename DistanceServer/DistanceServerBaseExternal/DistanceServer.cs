@@ -168,6 +168,7 @@ public class DistanceServer
     }
     public void SayChatMessage(bool addMessage, string message)
     {
+        message = "[FFFFFF]" + message + "[-]";
         if (addMessage)
         {
             AddChatMessage(message);
@@ -292,6 +293,13 @@ public class DistanceServer
                 {
                     // TODO: sync game mode things if already started -- different for every game mode (see SyncLateClientToGameMode.Data and SyncMode.Data)
                     // NOTE: this should be handled entirely by the game mode programming, not by the base server programming
+                    if (distancePlayer.Countdown != -1.0)
+                    {
+                        DistanceServerMain.GetEvent<Events.ServerToClient.FinalCountdownActivate>().Fire(
+                            data.networkPlayer_,
+                            new Distance::Events.RaceMode.FinalCountdownActivate.Data(distancePlayer.Countdown, (int)(distancePlayer.Countdown - ModeTime))
+                        );
+                    }
                 }
                 RequestSubmitGameModeInfo(data.networkPlayer_);
             }
@@ -341,6 +349,7 @@ public class DistanceServer
         DistanceServerMain.GetEvent<Events.ClientToServer.SubmitPlayerData>().Connect(data =>
         {
             var distancePlayer = GetDistancePlayer(data.clientPlayerIndex_);
+            distancePlayer.RestartTime = -1.0;
             distancePlayer.Car = new DistanceCar(distancePlayer, data.data_);
             distancePlayer.Car.MakeNetworker();
             DistanceServerMain.GetEvent<Events.ServerToClient.CreatePlayer>().Fire(
@@ -482,6 +491,7 @@ public class DistanceServer
         foreach (var player in ValidPlayers)
         {
             player.Car = null;
+            player.Countdown = -1.0;
         }
         SendAllPlayersToLobby();
         OnLobbyStartedEvent.Fire();
@@ -557,6 +567,7 @@ public class DistanceServer
         foreach (var player in ValidPlayers)
         {
             player.Car = null;
+            player.Countdown = -1.0;
         }
         StartingMode = true;
         StartingModeTime = Network.time;
@@ -576,6 +587,10 @@ public class DistanceServer
     public LocalEventEmpty OnModeStartedEvent = new LocalEventEmpty();
     public void AttemptToStartMode()
     {
+        if (StartingModeDelay)
+        {
+            return;
+        }
         if (StartingModeTime == -1.0 || Network.time - StartingModeTime < StartingModeTimeout)
         {
             foreach (var player in ValidPlayers)
@@ -611,11 +626,12 @@ public class DistanceServer
             }
         }
 
-        ModeStartTime = Network.time + 12.0;  // Shift start sooner/later
+        ModeStartTime = Network.time + 7.0 + delayTime;  // Shift start sooner/later
         ModeTimeOffset = -ModeStartTime;
         HasModeStarted = true;
 
         yield return new WaitForSeconds(delayTime);
+
         foreach (var player in ValidPlayers)
         {
             if (player.State == DistancePlayer.PlayerState.StartedMode)

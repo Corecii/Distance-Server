@@ -16,15 +16,21 @@ namespace VoteCommands
         public override int Priority => -4;
         public override SemanticVersion ServerVersion => new SemanticVersion("0.1.3");
 
-        public bool HasSkipped = false;
-        public double SkipThreshold = .7;
         public List<string> RequiredTags = new List<string>();
+        public double SkipThreshold = .7;
+        public double ExtendThreshold = .7;
+        public double ExtendTime = 3 * 60;
 
+        public bool HasSkipped = false;
         public Dictionary<string, double> LeftAt = new Dictionary<string, double>();
+
         public Dictionary<string, DistanceLevel> PlayerVotes = new Dictionary<string, DistanceLevel>();
         public List<string> SkipVotes = new List<string>();
+        public List<string> ExtendVotes = new List<string>();
+        public int DelayedExtensions = 0;
 
         public int NeededVotesToSkipLevel => (int)Math.Ceiling(Server.ValidPlayers.Count * SkipThreshold);
+        public int NeededVotesToExtendLevel => (int)Math.Ceiling(Server.ValidPlayers.Count * ExtendThreshold);
 
         public void ReadSettings()
         {
@@ -40,6 +46,8 @@ namespace VoteCommands
                 var reader = new JsonFx.Json.JsonReader();
                 var dictionary = (Dictionary<string, object>)reader.Read(txt);
                 TryGetValue(dictionary, "SkipThreshold", ref SkipThreshold);
+                TryGetValue(dictionary, "ExtendThreshold", ref ExtendThreshold);
+                TryGetValue(dictionary, "ExtendTime", ref ExtendTime);
                 var tagsBase = new object[0];
                 TryGetValue(dictionary, "RequiredTags", ref tagsBase);
                 foreach (object tagBase in tagsBase)
@@ -68,6 +76,16 @@ namespace VoteCommands
             }
         }
 
+        public string GetExtendTimeText()
+        {
+            int timeout = (int)ExtendTime;
+            if (timeout % 60 == 0)
+            {
+                return $"{timeout / 60} minutes";
+            }
+            return $"{timeout / 60}:{timeout % 60}";
+        }
+
         public override void Start()
         {
             Log.Info("VoteCommands Started!");
@@ -80,18 +98,35 @@ namespace VoteCommands
                     SkipVotes.Remove(player.UnityPlayerGuid);
                 }
                 CheckForSkip();
+                if (ExtendVotes.Contains(player.UnityPlayerGuid))
+                {
+                    ExtendVotes.Remove(player.UnityPlayerGuid);
+                }
+                CheckForExtend();
             });
 
             Server.OnLevelStartedEvent.Connect(() =>
             {
+                ExtendVotes.Clear();
+                DelayedExtensions = 0;
                 SkipVotes.Clear();
                 HasSkipped = false;
+            });
+
+            Server.OnModeStartedEvent.Connect(1, () =>
+            {
+                if (DelayedExtensions != 0)
+                {
+                    autoServer.ExtendTimeout(ExtendTime * DelayedExtensions);
+                }
             });
 
             DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Connect(ProcessChatMessage);
 
             autoServer = Manager.GetPlugin<BasicAutoServer.BasicAutoServer>();
             autoServer.OnAdvancingToNextLevel.Connect(OnAdvancingToNextLevel);
+
+            autoServer.TimeoutMessageGetter = time => $"Server has been on this level for {time}. Use [00FFFF]/extend[-] to extend this level.";
 
             Server.OnPlayerDisconnectedEvent.Connect(player =>
             {
@@ -115,6 +150,14 @@ namespace VoteCommands
                         PlayerVotes.Remove(vote.Key);
                         LeftAt.Remove(vote.Key);
                     }
+                }
+            }
+            
+            foreach (var pair in LeftAt.ToArray())
+            {
+                if (DistanceServerMain.UnixTime - pair.Value > 5 * 60)
+                {
+                    LeftAt.Remove(pair.Key);
                 }
             }
             if (validVotes.Count == 0)
@@ -175,9 +218,8 @@ namespace VoteCommands
             match = Regex.Match(message, @"^/help$");
             if (match.Success)
             {
-                Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search /vote /skip /clear[-]");
+                Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search /vote /skip /extend /clear /restart[-]");
             }
-
 
             match = Regex.Match(message, @"^/skip$");
             if (match.Success && SkipThreshold < 100 && SkipThreshold != -1)
@@ -186,14 +228,63 @@ namespace VoteCommands
                 if (!SkipVotes.Contains(player.UnityPlayerGuid))
                 {
                     SkipVotes.Add(player.UnityPlayerGuid);
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"Added your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
+                    Server.SayChatMessage(true, $"Added your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
                     CheckForSkip();
                 }
                 else
                 {
                     SkipVotes.Remove(player.UnityPlayerGuid);
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"Removed your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
+                    Server.SayChatMessage(true, $"Removed your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
                 }
+                return;
+            }
+
+            match = Regex.Match(message, @"^/extend$");
+            if (match.Success && SkipThreshold < 100 && SkipThreshold != -1)
+            {
+                if (!ExtendVotes.Contains(player.UnityPlayerGuid))
+                {
+                    ExtendVotes.Add(player.UnityPlayerGuid);
+                    Server.SayChatMessage(true, $"Added your vote to extend the level {ExtendVotes.Count}/{NeededVotesToExtendLevel}");
+                    CheckForExtend();
+                }
+                else
+                {
+                    ExtendVotes.Remove(player.UnityPlayerGuid);
+                    Server.SayChatMessage(true, $"Removed your vote to extend the level {ExtendVotes.Count}/{NeededVotesToExtendLevel}");
+                }
+                return;
+            }
+
+            match = Regex.Match(message, @"^/restart$");
+            if (match.Success)
+            {
+                var restartOkay = false;
+                if (autoServer.ServerStage == BasicAutoServer.BasicAutoServer.Stage.Started)
+                {
+                    restartOkay = true;
+                } else if (autoServer.ServerStage == BasicAutoServer.BasicAutoServer.Stage.Timeout && autoServer.LevelEndTime - DistanceServerMain.NetworkTime > 30)
+                {
+                    restartOkay = true;
+                }
+                if (player.State != DistancePlayer.PlayerState.StartedMode || player.Car == null)
+                {
+                    restartOkay = false;
+                }
+                if (Server.IsInLobby)
+                {
+                    restartOkay = false;
+                }
+                if (!restartOkay)
+                {
+                    Server.SayLocalChatMessage(player.UnityPlayer, $"You cannot restart right now");
+                    return;
+                }
+                Server.SayLocalChatMessage(player.UnityPlayer, $"Restarting the level, just for you...");
+                player.RestartTime = DistanceServerMain.UnixTime;
+                player.Car.BroadcastDNF();
+                player.Car = null; // if the car stays in the game, the player will get stuck on the loading screen!
+                Server.SendPlayerToLevel(player.UnityPlayer);
                 return;
             }
 
@@ -244,7 +335,7 @@ namespace VoteCommands
             if (SkipVotes.Count >= NeededVotesToSkipLevel)
             {
                 HasSkipped = true;
-                Manager.GetPlugin<BasicAutoServer.BasicAutoServer>().AdvanceLevel();
+                autoServer.AdvanceLevel();
                 foreach (var player in Server.ValidPlayers)
                 {
                     if (player.Car != null && !player.Car.Finished)
@@ -253,6 +344,27 @@ namespace VoteCommands
                     }
                 }
                 Server.SayChatMessage(true, $"Votes to skip the level have passed {(int)(SkipThreshold*100)}%. Skipping the level in 10 seconds.");
+            }
+        }
+
+        public void CheckForExtend()
+        {
+            if (Server.ValidPlayers.Count == 0)
+            {
+                return;
+            }
+            if (ExtendVotes.Count >= NeededVotesToExtendLevel)
+            {
+                var success = autoServer.ExtendTimeout(ExtendTime);
+                if (success)
+                {
+                    Server.SayChatMessage(true, $"Votes to extend the level have passed {(int)(ExtendThreshold * 100)}%. Extending the level by {GetExtendTimeText()}");
+                }
+                else
+                {
+                    DelayedExtensions++;
+                }
+                ExtendVotes.Clear();
             }
         }
 

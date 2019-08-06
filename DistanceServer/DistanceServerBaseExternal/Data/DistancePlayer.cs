@@ -20,10 +20,43 @@ public class DistancePlayer : IExternalData
     public int Index = -1;
     public string Name = "";
 
-
     public double JoinedAt = 0;
     public double ValidatedAt = 0;
     public double LeftAt = 0;
+
+    public double RestartTime = 0.0;
+
+    public double Countdown = -1.0;
+
+    public void UpdateCountdown(double value)
+    {
+        if (HasUnityPlayer && State == PlayerState.LoadedGameModeScene || State == PlayerState.SubmittedGameModeInfo || State == PlayerState.StartedMode)
+        {
+            if (value == -1.0)
+            {
+                if (Countdown != -1.0)
+                {
+                    DistanceServerMain.GetEvent<Events.ServerToClient.FinalCountdownCancel>().Fire(
+                        UnityPlayer,
+                        new Distance::Events.RaceMode.FinalCountdownCancel.Data()
+                    );
+                }
+            }
+            else
+            {
+                DistanceServerMain.GetEvent<Events.ServerToClient.FinalCountdownActivate>().Fire(
+                    UnityPlayer,
+                    new Distance::Events.RaceMode.FinalCountdownActivate.Data(value, (int)(value - Server.ModeTime))
+                );
+            }
+        }
+        Countdown = value;
+    }
+
+    public void ClearCountdown()
+    {
+        UpdateCountdown(-1.0);
+    }
 
     public List<object> ExternalData = new List<object>();
     public T GetExternalData<T>()
