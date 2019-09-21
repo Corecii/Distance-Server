@@ -17,6 +17,7 @@ public class DistanceLevel : IExternalData
     public string LevelVersion = "";
     public string GameMode = "";
     public string[] SupportedModes = new string[0];
+    public LevelDifficulty Difficulty = LevelDifficulty.Unknown;
 
     public List<object> ExternalData = new List<object>();
     public T GetExternalData<T>()
@@ -65,6 +66,16 @@ public class DistanceLevel : IExternalData
         };
     }
 
+
+    public enum LevelDifficulty
+    {
+        Unknown,
+        Casual,
+        Normal,
+        Advanced,
+        Expert,
+        Nightmare
+    }
 
     const string fileDetailsUrl = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/";
 
@@ -190,6 +201,10 @@ public class DistanceLevel : IExternalData
                     levelVersion = dtDateTime.ToBinary().ToString();
                 }
 
+                var difficulty = LevelDifficulty.Unknown;
+                List<string> difficultyNames = new List<string>(Enum.GetNames(typeof(LevelDifficulty)));
+                List<LevelDifficulty> difficultyValues = new List<LevelDifficulty>((LevelDifficulty[])Enum.GetValues(typeof(LevelDifficulty)));
+
                 List<string> supportedModes = new List<string>();
                 if (detail.ContainsKey("tags"))
                 {
@@ -198,6 +213,11 @@ public class DistanceLevel : IExternalData
                         var tag = (Dictionary<string, object>)tagBase;
                         if (tag.ContainsKey("tag") && (string)tag["tag"] != "Level")
                         {
+                            var difficultyIndex = difficultyNames.IndexOf((string)tag["tag"]);
+                            if (difficultyIndex != -1)
+                            {
+                                difficulty = difficultyValues[difficultyIndex];
+                            }
                             supportedModes.Add((string)tag["tag"]);
                         }
                     }
@@ -211,6 +231,7 @@ public class DistanceLevel : IExternalData
                     WorkshopFileId = (string)detail["publishedfileid"],
                     GameMode = DefaultGameMode,
                     SupportedModes = supportedModes.ToArray(),
+                    Difficulty = difficulty,
                 };
                 ValidLevels.Add(level);
                 LevelsByPublishedFileId.Add(level.WorkshopFileId, level);

@@ -7,5 +7,5 @@ using System.Threading.Tasks;
 
 public abstract class DistanceCarBase
 {
-    public abstract void ReceiveSerializeEvent(byte[] bytes);
+    public abstract void ReceiveSerializeEvent(byte[] bytes, UnityEngine.NetworkMessageInfo info);
 }

@@ -45,15 +45,18 @@ namespace HttpInfoServer
         public LevelCompatibilityInfo LevelCompatibilityInfo;
         public string LevelCompatibility;
         public bool Valid;
-        public NetworkPlayer UnityPlayer;
+        public string IpAddress;
+        public int Port;
     }
 
     class AutoServerJsonData
     {
         public double IdleTimeout;
         public double LevelTimeout;
+        public bool AdvanceWhenStartingPlayersFinish;
         public string WelcomeMessage;
         public double LevelEndTime;
+        public string[] StartingPlayerGuids;
     }
 
     class VotingJsonData
@@ -64,6 +67,7 @@ namespace HttpInfoServer
         public double ExtendTime;
         public Dictionary<string, double> LeftAt;
         public Dictionary<string, DistanceLevel> PlayerVotes;
+        public Dictionary<string, int> AgainstVotes;
         public string[] SkipVotes;
         public string[] ExtendVotes;
     }
@@ -75,10 +79,12 @@ namespace HttpInfoServer
         public string RelativeLevelPath;
         public string WorkshopFileId;
         public string GameMode;
+        public string Difficulty;
     }
 
     class ChatJsonData
     {
+        public string Sender;
         public double Timestamp;
         public string Chat;
     }
@@ -434,7 +440,13 @@ namespace HttpInfoServer
                 jsonPlayer.Valid = player.Valid;
                 if (IsPrivateMode)
                 {
-                    jsonPlayer.UnityPlayer = player.UnityPlayer;
+                    jsonPlayer.IpAddress = player.UnityPlayer.ipAddress;
+                    jsonPlayer.Port = player.UnityPlayer.port;
+                }
+                else
+                {
+                    jsonPlayer.IpAddress = "Hidden";
+                    jsonPlayer.Port = -1;
                 }
                 if (player.Car != null)
                 {
@@ -471,7 +483,9 @@ namespace HttpInfoServer
                 autoServerJson.IdleTimeout = autoServer.IdleTimeout;
                 autoServerJson.LevelTimeout = autoServer.LevelTimeout;
                 autoServerJson.WelcomeMessage = autoServer.WelcomeMessage;
+                autoServerJson.AdvanceWhenStartingPlayersFinish = autoServer.AdvanceWhenStartingPlayersFinish;
                 autoServerJson.LevelEndTime = DistanceServerMain.NetworkTimeToUnixTime(autoServer.LevelEndTime);
+                autoServerJson.StartingPlayerGuids = autoServer.StartingPlayerGuids.ToArray();
             }
 
             VotingJsonData votingJsonData = null;
@@ -487,6 +501,12 @@ namespace HttpInfoServer
                 votingJsonData.PlayerVotes = voteCommands.PlayerVotes;
                 votingJsonData.SkipVotes = voteCommands.SkipVotes.ToArray();
                 votingJsonData.ExtendVotes = voteCommands.ExtendVotes.ToArray();
+                var against = new Dictionary<string, int>();
+                foreach (var pair in voteCommands.AgainstVotes)
+                {
+                    against[pair.Key] = pair.Value.Count;
+                }
+                votingJsonData.AgainstVotes = against;
             }
 
             var chatLog = new List<ChatJsonData>();
@@ -671,7 +691,7 @@ namespace HttpInfoServer
 
             Log.Debug($"Started HTTP(S) Info Server on port {Port}");
 
-            DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Connect(data =>
+            DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Connect((data, info) =>
             {
                 var playerMatch = Regex.Match(data.message_, @"^\[[0-9A-F]{6}\](.*?)\[FFFFFF\]: (.*)$");
                 if (!playerMatch.Success)

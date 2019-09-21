@@ -20,9 +20,9 @@ public class DistanceCarNetworkerBridge : MonoBehaviour
     }
     
     [RPC]
-    void ReceiveSerializeEvent(byte[] bytes)
+    void ReceiveSerializeEvent(byte[] bytes, NetworkMessageInfo info)
     {
-        Car.ReceiveSerializeEvent(bytes);
+        Car.ReceiveSerializeEvent(bytes, info);
     }
 
 }

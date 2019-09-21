@@ -31,17 +31,17 @@ public class GenericNetworkEvent<T> : NetworkEvent where T : struct, Distance::I
         return txt;
     }
 
-    public override void ReceiveRPC(Distance::BitStreamReader bitStreamReader)
+    public override void ReceiveRPC(Distance::BitStreamReader bitStreamReader, UnityEngine.NetworkMessageInfo info)
     {
         T data = DeserializeRPC(bitStreamReader);
         foreach (var handler in subscriptions)
         {
-            handler(data);
+            handler(data, info);
         }
     }
 
     List<GenericNetworkEventHandler> subscriptions = new List<GenericNetworkEventHandler>();
-    public delegate void GenericNetworkEventHandler(T data);
+    public delegate void GenericNetworkEventHandler(T data, UnityEngine.NetworkMessageInfo info);
     public virtual void Connect(GenericNetworkEventHandler handler)
     {
         subscriptions.Add(handler);

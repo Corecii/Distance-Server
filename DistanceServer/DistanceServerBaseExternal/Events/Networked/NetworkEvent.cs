@@ -13,7 +13,7 @@ public class NetworkEvent
         return "\tUnimplemented NetworkEvent";
     }
 
-    public virtual void ReceiveRPC(Distance::BitStreamReader bitStreamReader)
+    public virtual void ReceiveRPC(Distance::BitStreamReader bitStreamReader, UnityEngine.NetworkMessageInfo info)
     {
         Log.WriteLine("Received RPC to unimplemented NetworkEvent");
     }

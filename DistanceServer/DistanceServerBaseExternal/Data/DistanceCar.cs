@@ -242,7 +242,7 @@ public class DistanceCar : DistanceCarBase, IExternalData
 
     Distance::BitStreamReader bitStreamReader = new Distance::BitStreamReader(null);
 
-    void ReceiveRPC(byte[] bytes, List<NetworkEvent> eventLookup)
+    void ReceiveRPC(byte[] bytes, List<NetworkEvent> eventLookup, NetworkMessageInfo info)
     {
         bitStreamReader.Encapsulate(bytes);
         int index = 0;
@@ -251,13 +251,13 @@ public class DistanceCar : DistanceCarBase, IExternalData
         {
             Log.WriteLine($"Received invalid event index: {index} out of {eventLookup.Count}");
         }
-        eventLookup[index].ReceiveRPC(bitStreamReader);
+        eventLookup[index].ReceiveRPC(bitStreamReader, info);
     }
     
-    public override void ReceiveSerializeEvent(byte[] bytes)
+    public override void ReceiveSerializeEvent(byte[] bytes, NetworkMessageInfo info)
     {
         DistanceServerMain.DebugBytes("ReceiveSerializeEvent", bytes, InstancedEvents);
-        ReceiveRPC(bytes, InstancedEvents);
+        ReceiveRPC(bytes, InstancedEvents, info);
     }
 
 }

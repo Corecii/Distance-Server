@@ -614,7 +614,7 @@ public class DistanceServerMain : DistanceServerMainBase
         Log.WriteLine(outputTxt);
     }
 
-    void ReceiveRPC(byte[] bytes, List<NetworkEvent> eventLookup)
+    void ReceiveRPC(byte[] bytes, List<NetworkEvent> eventLookup, NetworkMessageInfo info)
     {
         bitStreamReader.Encapsulate(bytes);
         int index = 0;
@@ -623,34 +623,34 @@ public class DistanceServerMain : DistanceServerMainBase
         {
             Log.WriteLine($"Received invalid event index: {index} out of {eventLookup.Count}");
         }
-        eventLookup[index].ReceiveRPC(bitStreamReader);
+        eventLookup[index].ReceiveRPC(bitStreamReader, info);
     }
 
-    public override void ReceiveBroadcastAllEvent(byte[] bytes)
+    public override void ReceiveBroadcastAllEvent(byte[] bytes, NetworkMessageInfo info)
     {
         DebugBytes("ReceiveBroadcastAllEvent", bytes, ClientToClientEvents);
-        ReceiveRPC(bytes, ClientToClientEvents);
+        ReceiveRPC(bytes, ClientToClientEvents, info);
     }
 
-    public override void ReceiveClientToServerEvent(byte[] bytes)
+    public override void ReceiveClientToServerEvent(byte[] bytes, NetworkMessageInfo info)
     {
         DebugBytes("ReceiveClientToServerEvent", bytes, ClientToServerEvents);
-        ReceiveRPC(bytes, ClientToServerEvents);
+        ReceiveRPC(bytes, ClientToServerEvents, info);
     }
 
-    public override void ReceiveServerToClientEvent(byte[] bytes)
+    public override void ReceiveServerToClientEvent(byte[] bytes, NetworkMessageInfo info)
     {
         DebugBytes("ReceiveServerToClientEvent", bytes, ServerToClientEvents);
-        ReceiveRPC(bytes, ServerToClientEvents);
+        ReceiveRPC(bytes, ServerToClientEvents, info);
     }
 
-    public override void ReceiveTargetedEventServerToClient(byte[] bytes)
+    public override void ReceiveTargetedEventServerToClient(byte[] bytes, NetworkMessageInfo info)
     {
         DebugBytes("ReceiveTargetedEventServerToClient", bytes, ServerToClientEvents);
-        ReceiveRPC(bytes, ServerToClientEvents);
+        ReceiveRPC(bytes, ServerToClientEvents, info);
     }
 
-    public override void ReceiveSerializeEvent(byte[] bytes)
+    public override void ReceiveSerializeEvent(byte[] bytes, NetworkMessageInfo info)
     {
         DebugBytes("ReceiveSerializeEvent", bytes, null);
     }

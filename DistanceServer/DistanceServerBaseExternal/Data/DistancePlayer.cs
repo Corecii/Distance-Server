@@ -26,6 +26,74 @@ public class DistancePlayer : IExternalData
 
     public double RestartTime = 0.0;
 
+    public LocalEvent<DistanceChatEventData> OnChatMessageEvent = new LocalEvent<DistanceChatEventData>();
+    public List<DistanceChat> ChatLog = new List<DistanceChat>();
+    public void AddChatMessagesRaw(string message, DistanceChat[] chats, string senderGuid = "server")
+    {
+        foreach (DistanceChat chat in chats)
+        {
+            ChatLog.Add(chat);
+            if (ChatLog.Count > 64)
+            {
+                ChatLog.RemoveAt(0);
+            }
+        }
+        OnChatMessageEvent.Fire(new DistanceChatEventData(message, chats, senderGuid));
+    }
+    public void AddChatMessage(string message, string senderGuid = "server")
+    {
+        var chats = new List<DistanceChat>();
+        foreach (string line in message.Split(new char[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var chat = new DistanceChat(line, senderGuid);
+            chats.Add(chat);
+        }
+        AddChatMessagesRaw(message, chats.ToArray(), senderGuid);
+    }
+    public void SayLocalChatMessage(string message)
+    {
+        AddChatMessage(message);
+        DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Fire(
+            UnityPlayer,
+            new Distance::Events.ClientToAllClients.ChatMessage.Data(message)
+        );
+    }
+    public void DeleteChatMessage(DistanceChat message, bool resendChat=false)
+    {
+        ChatLog.Remove(message);
+        if (resendChat)
+        {
+            ResendChat();
+        }
+    }
+    public void DeleteChatMessages(DistanceChat[] messages, bool resendChat = false)
+    {
+        foreach (var message in messages)
+        {
+            ChatLog.Remove(message);
+        }
+        if (resendChat)
+        {
+            ResendChat();
+        }
+    }
+    public void ResendChat()
+    {
+        string chatString = "";
+        foreach (var line in ChatLog)
+        {
+            chatString += "\n" + line.Chat;
+        }
+        if (chatString.Length > 0)
+        {
+            chatString = chatString.Substring(1);
+        }
+        DistanceServerMain.GetEvent<Events.ServerToClient.SetServerChat>().Fire(
+            UnityPlayer,
+            new Distance::Events.ServerToClient.SetServerChat.Data(chatString)
+        );
+    }
+
     public double Countdown = -1.0;
 
     public void UpdateCountdown(double value)

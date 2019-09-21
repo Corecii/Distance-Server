@@ -23,11 +23,11 @@ public abstract class DistanceServerMainBase
     public abstract void OnPlayerConnected(NetworkPlayer player);
     public abstract void OnPlayerDisconnected(NetworkPlayer player);
     public abstract void OnDestroy();
-    public abstract void ReceiveBroadcastAllEvent(byte[] bytes);
-    public abstract void ReceiveClientToServerEvent(byte[] bytes);
-    public abstract void ReceiveServerToClientEvent(byte[] bytes);
-    public abstract void ReceiveTargetedEventServerToClient(byte[] bytes);
-    public abstract void ReceiveSerializeEvent(byte[] bytes);
+    public abstract void ReceiveBroadcastAllEvent(byte[] bytes, NetworkMessageInfo info);
+    public abstract void ReceiveClientToServerEvent(byte[] bytes, NetworkMessageInfo info);
+    public abstract void ReceiveServerToClientEvent(byte[] bytes, NetworkMessageInfo info);
+    public abstract void ReceiveTargetedEventServerToClient(byte[] bytes, NetworkMessageInfo info);
+    public abstract void ReceiveSerializeEvent(byte[] bytes, NetworkMessageInfo info);
     public abstract void ReceiveServerNetworkTimeSync(int serverNetworkTimeIntHigh, int serverNetworkTimeIntLow, NetworkMessageInfo info);
     public abstract void SubmitServerNetworkTimeSync(NetworkMessageInfo info);
 }

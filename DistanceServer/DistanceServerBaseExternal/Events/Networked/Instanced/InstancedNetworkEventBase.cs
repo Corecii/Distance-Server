@@ -30,7 +30,7 @@ public class InstancedNetworkEventBase<T> : InstancedNetworkEventNonGeneric
         return txt;
     }
 
-    public override void ReceiveRPC(Distance::BitStreamReader bitStreamReader)
+    public override void ReceiveRPC(Distance::BitStreamReader bitStreamReader, UnityEngine.NetworkMessageInfo info)
     {
         T data = DeserializeRPC(bitStreamReader);
         foreach (var handler in subscriptions)

@@ -154,17 +154,33 @@ public class DistanceServer
     public bool HasModeStarted = false;
     public double ModeStartTime = -1.0;
 
+    public LocalEvent<DistanceChatEventData> OnChatMessageEvent = new LocalEvent<DistanceChatEventData>();
     public List<DistanceChat> ChatLog = new List<DistanceChat>();
-    public void AddChatMessage(string message)
+    public void AddChatMessagesRaw(string message, DistanceChat[] chats, string senderGuid = "server")
     {
-        foreach (string line in message.Split(new char[] { '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries))
+        foreach (DistanceChat chat in chats)
         {
-            ChatLog.Add(new DistanceChat(line));
+            ChatLog.Add(chat);
             if (ChatLog.Count > 64)
             {
                 ChatLog.RemoveAt(0);
             }
         }
+        OnChatMessageEvent.Fire(new DistanceChatEventData(message, chats, senderGuid));
+        foreach (var distancePlayer in DistancePlayers.Values)
+        {
+            distancePlayer.AddChatMessagesRaw(message, chats, senderGuid);
+        }
+    }
+    public void AddChatMessage(string message, string senderGuid = "server")
+    {
+        var chats = new List<DistanceChat>();
+        foreach (string line in message.Split(new char[] { '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var chat = new DistanceChat(line, senderGuid);
+            chats.Add(chat);
+        }
+        AddChatMessagesRaw(message, chats.ToArray(), senderGuid);
     }
     public void SayChatMessage(bool addMessage, string message)
     {
@@ -173,24 +189,47 @@ public class DistanceServer
         {
             AddChatMessage(message);
         }
-        if (Network.isServer)
-        {
-            DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Fire(
-                RPCMode.Others,
-                new Distance::Events.ClientToAllClients.ChatMessage.Data(message)
-            );
-        }
+        DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Fire(
+            RPCMode.Others,
+            new Distance::Events.ClientToAllClients.ChatMessage.Data(message)
+        );
     }
     public void SayLocalChatMessage(NetworkPlayer player, string message)
     {
-        if (Network.isServer)
+        DistancePlayer distancePlayer = null;
+        DistancePlayers.TryGetValue(player.guid, out distancePlayer);
+        if (distancePlayer != null)
         {
-            DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Fire(
-                player,
-                new Distance::Events.ClientToAllClients.ChatMessage.Data(message)
-            );
+            distancePlayer.SayLocalChatMessage(message);
         }
     }
+    public void DeleteChatMessage(DistanceChat message, bool resendChat = false)
+    {
+        ChatLog.Remove(message);
+        foreach (var distancePlayer in DistancePlayers.Values)
+        {
+            distancePlayer.DeleteChatMessage(message, resendChat);
+        }
+    }
+    public void DeleteChatMessages(DistanceChat[] messages, bool resendChat = false)
+    {
+        foreach (var message in messages)
+        {
+            ChatLog.Remove(message);
+        }
+        foreach (var distancePlayer in DistancePlayers.Values)
+        {
+            distancePlayer.DeleteChatMessages(messages, resendChat);
+        }
+    }
+    public void ResendChat()
+    {
+        foreach (var distancePlayer in DistancePlayers.Values)
+        {
+            distancePlayer.ResendChat();
+        }
+    }
+
 
     public Dictionary<string, DistancePlayer> DistancePlayers = new Dictionary<string, DistancePlayer>();
     public List<DistancePlayer> ValidPlayers = new List<DistancePlayer>();
@@ -218,9 +257,10 @@ public class DistanceServer
     public void Init()
     {
         MasterServer.dedicatedServer = true;
-        DistanceServerMain.GetEvent<Events.ClientToServer.SubmitPlayerInfo>().Connect(data =>
+        DistanceServerMain.GetEvent<Events.ClientToServer.SubmitPlayerInfo>().Connect((data, info) =>
         {
-            var player = GetDistancePlayer(data.sender_);
+            // ignore data.sender_, it should be sender
+            var player = GetDistancePlayer(info.sender);
             player.Name = data.playerName_;
             player.ReceivedInfo = true;
             player.Index = ValidPlayers.Count;
@@ -235,9 +275,10 @@ public class DistanceServer
             player.OnValidatedEvent.Fire();
             OnPlayerValidatedEvent.Fire(player);
         });
-        DistanceServerMain.GetEvent<Events.ClientToServer.CompletedRequest>().Connect(data =>
+        DistanceServerMain.GetEvent<Events.ClientToServer.CompletedRequest>().Connect((data, info) =>
         {
-            var distancePlayer = GetDistancePlayer(data.networkPlayer_);
+            // ignore data.networkPlayer_, it should be sender
+            var distancePlayer = GetDistancePlayer(info.sender);
             if (data.request_ == Distance::ServerRequest.SubmitClientInfo)  // TODO: check if request was actually completed for security
             {
                 distancePlayer.State = DistancePlayer.PlayerState.Initialized;
@@ -323,17 +364,19 @@ public class DistanceServer
                 }
             }
         });
-        DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Connect(data =>
+        DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Connect((data, info) =>
         {
-            AddChatMessage(data.message_);
+            AddChatMessage(data.message_, info.sender.guid);
         });
-        DistanceServerMain.GetEvent<Events.ClientToAllClients.SetReady>().Connect(data =>
+        DistanceServerMain.GetEvent<Events.ClientToAllClients.SetReady>().Connect((data, info) =>
         {
-            GetDistancePlayer(data.player_).Ready = data.ready_;
+            // ignore data.player_, it should be sender
+            GetDistancePlayer(info.sender).Ready = data.ready_;
         });
-        DistanceServerMain.GetEvent<Events.ClientToServer.SubmitLevelCompatabilityInfo>().Connect(data =>
+        DistanceServerMain.GetEvent<Events.ClientToServer.SubmitLevelCompatabilityInfo>().Connect((data, info) =>
         {
-            var distancePlayer = GetDistancePlayer(data.player_);
+            // ignore data.player_, it should be sender
+            var distancePlayer = GetDistancePlayer(info.sender);
             distancePlayer.LevelCompatibilityInfo = new LevelCompatibilityInfo(data);
             Log.Debug($"Level compatibility versions test: {data.levelVersion_} : {CurrentLevel.LevelVersion}");
             // TODO: write proper level compat check code (the current computed version is incorrect, so version checking is ignored)
@@ -346,9 +389,10 @@ public class DistanceServer
                 SendPlayerToLevel(distancePlayer.UnityPlayer);
             }
         });
-        DistanceServerMain.GetEvent<Events.ClientToServer.SubmitPlayerData>().Connect(data =>
+        DistanceServerMain.GetEvent<Events.ClientToServer.SubmitPlayerData>().Connect((data, info) =>
         {
-            var distancePlayer = GetDistancePlayer(data.clientPlayerIndex_);
+            // ignore data.player_, it should be sender
+            var distancePlayer = GetDistancePlayer(info.sender);
             distancePlayer.RestartTime = -1.0;
             distancePlayer.Car = new DistanceCar(distancePlayer, data.data_);
             distancePlayer.Car.MakeNetworker();
@@ -658,20 +702,12 @@ public class DistanceServer
                 existingPlayer.GetAddClientData(false)
             );
         }
-
-        string chatString = "";
+        
         foreach (var line in ChatLog)
         {
-            chatString += "\n" + line.Chat;
+            distancePlayer.ChatLog.Add(line);
         }
-        if (chatString.Length > 0)
-        {
-            chatString = chatString.Substring(1);
-        }
-        DistanceServerMain.GetEvent<Events.ServerToClient.SetServerChat>().Fire(
-            player,
-            new Distance::Events.ServerToClient.SetServerChat.Data(chatString)
-        );
+        distancePlayer.ResendChat();
 
         SendLevelInfo(player);
 

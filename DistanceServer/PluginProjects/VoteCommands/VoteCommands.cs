@@ -17,20 +17,60 @@ namespace VoteCommands
         public override SemanticVersion ServerVersion => new SemanticVersion("0.1.3");
 
         public List<string> RequiredTags = new List<string>();
+        public HashSet<string> SoftBlocklistLevelIds = new HashSet<string>();
+        public HashSet<string> HardBlocklistLevelIds = new HashSet<string>();
+        public HashSet<string> SoftBlocklistDifficulties = new HashSet<string>();
         public double SkipThreshold = .7;
         public double ExtendThreshold = .7;
         public double ExtendTime = 3 * 60;
+        public double SoftBlocklistThreshold = .7;
 
         public bool HasSkipped = false;
-        public Dictionary<string, double> LeftAt = new Dictionary<string, double>();
+        public Dictionary<string, int> RecentMaps = new Dictionary<string, int>(); // <relativeLevelPath, expireLevelIndex>
 
-        public Dictionary<string, DistanceLevel> PlayerVotes = new Dictionary<string, DistanceLevel>();
-        public List<string> SkipVotes = new List<string>();
-        public List<string> ExtendVotes = new List<string>();
+        public Dictionary<string, double> TempMuted = new Dictionary<string, double>(); // <playerGuid, expireUnixTime>
+
+        public Dictionary<string, DistanceLevel> PlayerVotes = new Dictionary<string, DistanceLevel>(); // <playerGuid, level>
+        public Dictionary<string, HashSet<string>> AgainstVotes = new Dictionary<string, HashSet<string>>(); // <relativeLevelPath, Set<playerGuid>>
+        public List<string> SkipVotes = new List<string>(); // <playerGuid>
+        public List<string> ExtendVotes = new List<string>(); // <playerGuid>
         public int DelayedExtensions = 0;
+
+        public Dictionary<string, double> LeftAt = new Dictionary<string, double>(); // <playerGuid, expireUnixTime>
+
+        public class FilterLevelRealtimeEventData {
+            public bool SoftBlocklist = false;
+            public bool HardBlocklist = false;
+            public DistanceLevel Level;
+            public string Reason = "";
+            public FilterLevelRealtimeEventData(DistanceLevel level)
+            {
+                Level = level;
+            }
+            public void SoftBlock(string reason)
+            {
+                if (SoftBlocklist || HardBlocklist)
+                {
+                    return;
+                }
+                SoftBlocklist = true;
+                Reason = reason;
+            }
+            public void HardBlock(string reason)
+            {
+                if (HardBlocklist)
+                {
+                    return;
+                }
+                HardBlocklist = true;
+                Reason = reason;
+            }
+        }
+        public LocalEvent<FilterLevelRealtimeEventData> OnFilterLevelRealtime = new LocalEvent<FilterLevelRealtimeEventData>();
 
         public int NeededVotesToSkipLevel => (int)Math.Ceiling(Server.ValidPlayers.Count * SkipThreshold);
         public int NeededVotesToExtendLevel => (int)Math.Ceiling(Server.ValidPlayers.Count * ExtendThreshold);
+        public int NeededVotesToOverrideSoftBlocklist => (int)Math.Ceiling(Server.ValidPlayers.Count * SoftBlocklistThreshold);
 
         public void ReadSettings()
         {
@@ -48,11 +88,29 @@ namespace VoteCommands
                 TryGetValue(dictionary, "SkipThreshold", ref SkipThreshold);
                 TryGetValue(dictionary, "ExtendThreshold", ref ExtendThreshold);
                 TryGetValue(dictionary, "ExtendTime", ref ExtendTime);
-                var tagsBase = new object[0];
-                TryGetValue(dictionary, "RequiredTags", ref tagsBase);
-                foreach (object tagBase in tagsBase)
+                TryGetValue(dictionary, "SoftBlocklistThreshold", ref SoftBlocklistThreshold);
+                var listBase = new object[0];
+                TryGetValue(dictionary, "RequiredTags", ref listBase);
+                foreach (object valBase in listBase)
                 {
-                    RequiredTags.Add((string)tagBase);
+                    RequiredTags.Add((string)valBase);
+                }
+                listBase = new object[0];
+                TryGetValue(dictionary, "SoftBlocklist", ref listBase);
+                foreach (object valBase in listBase)
+                {
+                    SoftBlocklistLevelIds.Add((string)valBase);
+                }
+                listBase = new object[0];
+                TryGetValue(dictionary, "HardBlocklist", ref listBase);
+                foreach (object valBase in listBase)
+                {
+                    HardBlocklistLevelIds.Add((string)valBase);
+                }
+                TryGetValue(dictionary, "SoftBlocklistDifficulties", ref listBase);
+                foreach (object valBase in listBase)
+                {
+                    SoftBlocklistDifficulties.Add((string)valBase);
                 }
                 Log.Info("Loaded settings from VoteCommands.json");
             }
@@ -121,34 +179,111 @@ namespace VoteCommands
                 }
             });
 
-            DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Connect(ProcessChatMessage);
+            Server.OnChatMessageEvent.Connect(ProcessChatMessage);
 
             autoServer = Manager.GetPlugin<BasicAutoServer.BasicAutoServer>();
             autoServer.OnAdvancingToNextLevel.Connect(OnAdvancingToNextLevel);
 
             autoServer.TimeoutMessageGetter = time => $"Server has been on this level for {time}. Use [00FFFF]/extend[-] to extend this level.";
+            autoServer.StartingPlayersFinishedMessageGetter = () => $"All initial players finished. Use [00FFFF]/extend[-] to extend this level.";
 
             Server.OnPlayerDisconnectedEvent.Connect(player =>
             {
                 LeftAt[player.UnityPlayerGuid] = player.LeftAt;
+            });
+
+            OnFilterLevelRealtime.Connect(data =>
+            {
+                if (SoftBlocklistLevelIds.Contains(data.Level.WorkshopFileId))
+                {
+                    data.SoftBlock("this level is on the soft blocklist");
+                }
+                else if (HardBlocklistLevelIds.Contains(data.Level.WorkshopFileId))
+                {
+                    data.HardBlock("this level is on the blocklist");
+                }
+                else if (RecentMaps.ContainsKey(data.Level.RelativeLevelPath))
+                {
+                    var expiryLevelId = RecentMaps[data.Level.RelativeLevelPath];
+                    if (Server.CurrentLevelId <= expiryLevelId)
+                    {
+                        data.SoftBlock("this level was recently played");
+                    }
+                }
+                else if (SoftBlocklistDifficulties.Contains(data.Level.Difficulty.ToString()))
+                {
+                    data.SoftBlock("this level's difficulty is on the soft blocklist");
+                }
             });
         }
 
         BasicAutoServer.BasicAutoServer autoServer;
         void OnAdvancingToNextLevel()
         {
-            var validVotes = PlayerVotes.ToList();
-            for (int i = 0; i < validVotes.Count; i++)
+            var levelLookup = new Dictionary<string, DistanceLevel>();
+            var validVotes = new Dictionary<string, int>();
+            foreach (var vote in PlayerVotes)
             {
-                var vote = validVotes[i];
                 if (Server.GetDistancePlayer(vote.Key) == null)
                 {
-                    validVotes.RemoveAt(i);
-                    i--;
                     if (!LeftAt.ContainsKey(vote.Key) || DistanceServerMain.UnixTime - LeftAt[vote.Key] > 5 * 60)
                     {
                         PlayerVotes.Remove(vote.Key);
                         LeftAt.Remove(vote.Key);
+                    }
+                }
+                else
+                {
+                    int count = 0;
+                    validVotes.TryGetValue(vote.Value.RelativeLevelPath, out count);
+                    validVotes[vote.Value.RelativeLevelPath] = count + 1;
+                    if (!levelLookup.ContainsKey(vote.Value.RelativeLevelPath))
+                    {
+                        levelLookup[vote.Value.RelativeLevelPath] = vote.Value;
+                    }
+                }
+            }
+
+            foreach (var pair in RecentMaps.ToArray())
+            {
+                if (Server.CurrentLevelId > pair.Value)
+                {
+                    RecentMaps.Remove(pair.Key);
+                }
+            }
+
+            var votesSum = 0;
+            foreach (var vote in validVotes.ToArray())
+            {
+                var data = new FilterLevelRealtimeEventData(levelLookup[vote.Key]);
+                OnFilterLevelRealtime.Fire(data);
+                if (data.HardBlocklist || (data.SoftBlocklist && vote.Value < NeededVotesToOverrideSoftBlocklist))
+                {
+                    validVotes.Remove(vote.Key);
+                }
+                else
+                {
+                    var value = vote.Value;
+                    if (AgainstVotes.ContainsKey(vote.Key))
+                    {
+                        var count = 0;
+                        foreach (var guid in AgainstVotes[vote.Key])
+                        {
+                            if (Server.GetDistancePlayer(guid) != null)
+                            {
+                                count++;
+                                value--;
+                            }
+                        }
+                    }
+                    if (value <= 0)
+                    {
+                        validVotes.Remove(vote.Key);
+                    }
+                    else
+                    {
+                        validVotes[vote.Key] = value;
+                        votesSum += value;
                     }
                 }
             }
@@ -158,30 +293,57 @@ namespace VoteCommands
                 if (DistanceServerMain.UnixTime - pair.Value > 5 * 60)
                 {
                     LeftAt.Remove(pair.Key);
+                    foreach (var votePair in AgainstVotes.ToArray())
+                    {
+                        votePair.Value.Remove(pair.Key);
+                        if (votePair.Value.Count == 0)
+                        {
+                            AgainstVotes.Remove(votePair.Key);
+                        }
+                    }
                 }
             }
+
             if (validVotes.Count == 0)
             {
                 return;
             }
-            var choice = validVotes[new Random().Next(validVotes.Count)];
-            PlayerVotes.Remove(choice.Key);
-            autoServer.SetNextLevel(choice.Value);
-            Server.SayChatMessage(true, "Choosing a map at random from the voted-for tracks");
-            var voteCount = 0;
-            foreach (var vote in PlayerVotes.ToList())
+            var choiceInt = new Random().Next(votesSum);
+            var choiceSum = 0;
+            DistanceLevel level = null;
+            foreach (var pair in validVotes)
             {
-                if (vote.Value.RelativeLevelPath == choice.Value.RelativeLevelPath)
+                choiceSum += pair.Value;
+                if (choiceInt < choiceSum)
+                {
+                    level = levelLookup[pair.Key];
+                    break;
+                }
+            }
+            if (level == null)
+            {
+                return;
+            }
+            autoServer.SetNextLevel(level);
+            var voteCount = 0;
+            string firstPlayer = null;
+            foreach (var vote in PlayerVotes.ToArray())
+            {
+                if (vote.Value.RelativeLevelPath == level.RelativeLevelPath)
                 {
                     voteCount++;
                     PlayerVotes.Remove(vote.Key);
+                    if (firstPlayer == null)
+                    {
+                        firstPlayer = vote.Key;
+                    }
                 }
             }
             var nextLevelId = Server.CurrentLevelId + 1;
             LocalEventEmpty.EventConnection[] conns = new LocalEventEmpty.EventConnection[2];
             conns[0] = Server.OnModeStartedEvent.Connect(() =>
             {
-                Server.SayChatMessage(true, $"Chosen level is [00FF00]{choice.Value.Name}[-], voted for by {Server.GetDistancePlayer(choice.Key).Name}" + (voteCount > 0 ? $" and {voteCount} others" : ""));
+                Server.SayChatMessage(true, $"Chosen level is [00FF00]{level.Name}[-], voted for by {Server.GetDistancePlayer(firstPlayer).Name}" + (voteCount > 1 ? $" and {voteCount - 1} others" : ""));
                 foreach (var conn in conns)
                 {
                     conn.Disconnect();
@@ -199,33 +361,61 @@ namespace VoteCommands
             });
         }
 
-        void ProcessChatMessage(Distance::Events.ClientToAllClients.ChatMessage.Data data)
+        System.Collections.IEnumerator RestartPlayerAfter(DistancePlayer player, float time)
         {
-            var playerMatch = Regex.Match(data.message_, @"^\[[0-9A-F]{6}\](.*?)\[FFFFFF\]: (.*)$");
-            if (!playerMatch.Success)
+            player.RestartTime = DistanceServerMain.UnixTime;
+            autoServer.SetStartingPlayer(player.UnityPlayerGuid, false);
+            player.Car.BroadcastDNF();
+            yield return new UnityEngine.WaitForSeconds(time);
+            player.Car = null; // if the car stays in the game, the player will get stuck on the loading screen!
+            Server.SendPlayerToLevel(player.UnityPlayer);
+        }
+
+        void ProcessChatMessage(DistanceChatEventData data)
+        {
+            if (data.SenderGuid == "server")
             {
                 return;
             }
-            var playerName = Regex.Replace(playerMatch.Groups[1].ToString(), @"\[.*\]", "").ToLower();
-            var player = Server.ValidPlayers.Find(distPlayer => distPlayer.Name.ToLower() == Regex.Replace(playerMatch.Groups[1].ToString(), @"\[.*\]", "").ToLower());
+            var player = Server.GetDistancePlayer(data.SenderGuid);
             if (player == null)
             {
                 return;
             }
+
+            var isMuted = false;
+            if (TempMuted.ContainsKey(data.SenderGuid))
+            {
+                var mutedUntil = TempMuted[data.SenderGuid];
+                if (mutedUntil > DistanceServerMain.UnixTime)
+                {
+                    isMuted = true;
+                    Server.DeleteChatMessages(data.Chats, true);
+                }
+                else
+                {
+                    TempMuted.Remove(data.SenderGuid);
+                }
+            }
+
+            var playerMatch = Regex.Match(data.Message, @"^\[[0-9A-F]{6}\](.+)\[FFFFFF\]: (.*)$");
             var message = playerMatch.Groups[2].ToString();
 
             Match match;
             match = Regex.Match(message, @"^/help$");
             if (match.Success)
             {
-                Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search /vote /skip /extend /clear /restart[-]");
+                Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/vote /skip /extend /restart /not /clear[-]");
             }
 
             match = Regex.Match(message, @"^/skip$");
             if (match.Success && SkipThreshold < 100 && SkipThreshold != -1)
             {
-
-                if (!SkipVotes.Contains(player.UnityPlayerGuid))
+                if (isMuted)
+                {
+                    Server.SayLocalChatMessage(player.UnityPlayer, "You are not allowed to vote while muted");
+                }
+                else if (!SkipVotes.Contains(player.UnityPlayerGuid))
                 {
                     SkipVotes.Add(player.UnityPlayerGuid);
                     Server.SayChatMessage(true, $"Added your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
@@ -242,7 +432,12 @@ namespace VoteCommands
             match = Regex.Match(message, @"^/extend$");
             if (match.Success && SkipThreshold < 100 && SkipThreshold != -1)
             {
-                if (!ExtendVotes.Contains(player.UnityPlayerGuid))
+
+                if (isMuted)
+                {
+                    Server.SayLocalChatMessage(player.UnityPlayer, "You are not allowed to vote while muted");
+                }
+                else if (!ExtendVotes.Contains(player.UnityPlayerGuid))
                 {
                     ExtendVotes.Add(player.UnityPlayerGuid);
                     Server.SayChatMessage(true, $"Added your vote to extend the level {ExtendVotes.Count}/{NeededVotesToExtendLevel}");
@@ -281,16 +476,19 @@ namespace VoteCommands
                     return;
                 }
                 Server.SayLocalChatMessage(player.UnityPlayer, $"Restarting the level, just for you...");
-                player.RestartTime = DistanceServerMain.UnixTime;
-                player.Car.BroadcastDNF();
-                player.Car = null; // if the car stays in the game, the player will get stuck on the loading screen!
-                Server.SendPlayerToLevel(player.UnityPlayer);
+                DistanceServerMainStarter.Instance.StartCoroutine(RestartPlayerAfter(player, 2));
                 return;
             }
 
             var isVote = true;
+            var isAgainst = false;
             string levelSearchName = null;
             match = Regex.Match(message, @"^/vote (.*)$");
+            if (!match.Success)
+            {
+                match = Regex.Match(message, @"^/not (.*)$");
+                isAgainst = true;
+            }
             if (!match.Success)
             {
                 match = Regex.Match(message, @"^/search (.*)$");
@@ -302,13 +500,13 @@ namespace VoteCommands
             }
             else
             {
-                if (Regex.Match(message, @"^/vote$").Success || Regex.Match(message, @"^/search$").Success)
+                if (Regex.Match(message, @"^/vote$").Success || Regex.Match(message, @"^/search$").Success || Regex.Match(message, @"^/not$").Success)
                 {
                     if (PlayerVotes.ContainsKey(player.UnityPlayerGuid))
                     {
                         Server.SayLocalChatMessage(player.UnityPlayer, $"Your current vote is for [00FF00]{PlayerVotes[player.UnityPlayerGuid].Name}[-]");
                     }
-                    Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search name[-] or [00FFFF]/search name by author[-] to search\n[00FFFF]/vote name[-] or [00FFFF]/vote name by author[-] to vote for a level\n[00FFFF]/vote clear[-] to clear your vote\n[00FFFF]/skip[-] to vote to skip the level");
+                    Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search name[-] to search\n[00FFFF]/clear[-] to clear your vote\n[00FFFF]/vote name[-] to vote for a level\n[00FFFF]/not name[-] to vote against a level\n[00FFFF]/skip[-] to vote to skip the level");
                 }
                 else if (Regex.Match(message, @"^/clear$").Success)
                 {
@@ -323,7 +521,13 @@ namespace VoteCommands
                 return;
             }
 
-            DistanceServerMainStarter.Instance.StartCoroutine(SearchForLevels(player, levelSearchName, isVote));
+            if (isMuted && isVote)
+            {
+                Server.SayLocalChatMessage(player.UnityPlayer, "You are not allowed to vote while muted");
+                return;
+            }
+
+            DistanceServerMainStarter.Instance.StartCoroutine(SearchForLevels(player, levelSearchName, isVote, isAgainst));
         }
 
         public void CheckForSkip()
@@ -368,7 +572,7 @@ namespace VoteCommands
             }
         }
 
-        public System.Collections.IEnumerator SearchForLevels(DistancePlayer searcher, string searchText, bool isVote)
+        public System.Collections.IEnumerator SearchForLevels(DistancePlayer searcher, string searchText, bool isVote, bool isAgainst)
         {
             var autoServer = Manager.GetPlugin<BasicAutoServer.BasicAutoServer>();
             var byMatch = Regex.Match(searchText, @"by (.*)$");
@@ -474,8 +678,67 @@ namespace VoteCommands
             }
             else
             {
-                PlayerVotes[searcher.UnityPlayerGuid] = items[0].DistanceLevelResult;
-                Server.SayChatMessage(true, $"Set {searcher.Name}'s vote to [00FF00]{items[0].DistanceLevelResult.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
+                var result = items[0].DistanceLevelResult;
+                if (!isAgainst)
+                {
+                    var data = new FilterLevelRealtimeEventData(result);
+                    OnFilterLevelRealtime.Fire(data);
+                    if (data.HardBlocklist)
+                    {
+                        Server.SayChatMessage(true, $"The level [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName} is blocked because {data.Reason}.");
+                        yield break;
+                    }
+                    PlayerVotes[searcher.UnityPlayerGuid] = result;
+                    Server.SayChatMessage(true, $"Set {searcher.Name}'s vote to [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
+                    if (data.SoftBlocklist)
+                    {
+                        int count = PlayerVotes.Sum(pair =>
+                        {
+                            if (pair.Value.RelativeLevelPath != result.RelativeLevelPath || Server.GetDistancePlayer(pair.Key) == null)
+                            {
+                                return 0;
+                            }
+                            return 1;
+                        });
+                        int sub = 0;
+                        if (AgainstVotes.ContainsKey(result.RelativeLevelPath))
+                        {
+                            sub = AgainstVotes[result.RelativeLevelPath].Sum(playerGuid => Server.GetDistancePlayer(playerGuid) != null ? 1 : 0);
+                        }
+                        count = count - sub;
+                        int needed = NeededVotesToExtendLevel - count;
+                        if (needed > 0)
+                        {
+                            Server.SayChatMessage(true, $"The level [00FF00]{result.Name}[-] is soft-blocked and needs {needed} more votes to be played because {data.Reason}.");
+                        }
+                        else
+                        {
+                            Server.SayChatMessage(true, $"The level [00FF00]{result.Name}[-] is soft-blocked but has met its required vote count and can now be played.");
+                        }
+                    }
+                }
+                else
+                {
+                    var key = result.RelativeLevelPath;
+                    if (!AgainstVotes.ContainsKey(key))
+                    {
+                        AgainstVotes[key] = new HashSet<string>();
+                    }
+                    if (AgainstVotes[key].Contains(searcher.UnityPlayerGuid))
+                    {
+                        AgainstVotes[key].Remove(searcher.UnityPlayerGuid);
+                        if (AgainstVotes[key].Count == 0)
+                        {
+                            AgainstVotes.Remove(key);
+                            Server.SayChatMessage(true, $"Cleared {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
+                        }
+                    }
+                    else
+                    {
+                        AgainstVotes[key].Add(searcher.UnityPlayerGuid);
+                        Server.SayChatMessage(true, $"Set {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
+                    }
+                }
                 yield break;
             }
         }

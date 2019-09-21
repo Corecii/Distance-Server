@@ -5,10 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-public struct DistanceChat
+public class DistanceChat
 {
     public double Timestamp;
     public string Chat;
+    public string SenderGuid;
 
     public double NetworkTime
     {
@@ -18,15 +19,17 @@ public struct DistanceChat
         }
     }
 
-    public DistanceChat(double timestamp, string chat)
+    public DistanceChat(double timestamp, string chat, string senderGuid="server")
     {
         Timestamp = timestamp;
         Chat = chat;
+        SenderGuid = senderGuid;
     }
 
-    public DistanceChat(string chat)
+    public DistanceChat(string chat, string senderGuid="server")
     {
         Timestamp = DistanceServerMain.UnixTime;
         Chat = chat;
+        SenderGuid = senderGuid;
     }
 }

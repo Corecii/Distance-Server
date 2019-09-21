@@ -99,33 +99,33 @@ public class DistanceServerMainStarter : MonoBehaviour {
     }
 	 
     [RPC]
-    void ReceiveBroadcastAllEvent(byte[] bytes)
+    void ReceiveBroadcastAllEvent(byte[] bytes, NetworkMessageInfo info)
     {
-        External?.ReceiveBroadcastAllEvent(bytes);
+        External?.ReceiveBroadcastAllEvent(bytes, info);
     }
 
     [RPC]
-    void ReceiveClientToServerEvent(byte[] bytes)
+    void ReceiveClientToServerEvent(byte[] bytes, NetworkMessageInfo info)
     {
-        External?.ReceiveClientToServerEvent(bytes);
+        External?.ReceiveClientToServerEvent(bytes, info);
     }
 
     [RPC]
-    void ReceiveServerToClientEvent(byte[] bytes)
+    void ReceiveServerToClientEvent(byte[] bytes, NetworkMessageInfo info)
     {
-        External?.ReceiveServerToClientEvent(bytes);
+        External?.ReceiveServerToClientEvent(bytes, info);
     }
 
     [RPC]
-    void ReceiveTargetedEventServerToClient(byte[] bytes)
+    void ReceiveTargetedEventServerToClient(byte[] bytes, NetworkMessageInfo info)
     {
-        External?.ReceiveTargetedEventServerToClient(bytes);
+        External?.ReceiveTargetedEventServerToClient(bytes, info);
     }
 
     [RPC]
-    void ReceiveSerializeEvent(byte[] bytes)
+    void ReceiveSerializeEvent(byte[] bytes, NetworkMessageInfo info)
     {
-        External?.ReceiveSerializeEvent(bytes);
+        External?.ReceiveSerializeEvent(bytes, info);
     }
 
     [RPC]
