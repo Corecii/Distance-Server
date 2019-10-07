@@ -340,10 +340,10 @@ namespace BasicAutoServer
             {
                 if (ServerStage == Stage.Started && GetUnfinishedStartingPlayersCount() == 0)
                 {
-                    Server.SayChatMessage(true, StartingPlayersFinishedMessageGetter());
                     LevelEndTime = DistanceServerMain.NetworkTime + 60.0;
                     ServerStage = Stage.Timeout;
                     setCountdownTime(Server.ModeTime + 60.0);
+                    Server.SayChatMessage(true, StartingPlayersFinishedMessageGetter());
                 }
             }
         }

@@ -85,6 +85,7 @@ namespace HttpInfoServer
     class ChatJsonData
     {
         public string Sender;
+        public string Guid;
         public double Timestamp;
         public string Chat;
     }
@@ -203,6 +204,10 @@ namespace HttpInfoServer
             {
                 RespondChat();
             }
+            else if (location == "/serverchat")
+            {
+                RespondServerChat();
+            }
             else
             {
                 Context.Response.StatusCode = 404;
@@ -212,6 +217,32 @@ namespace HttpInfoServer
                     ErrorCode = 404,
                 });
             }
+        }
+        internal void RespondServerChat()
+        {
+            var writer = new JsonFx.Json.JsonWriter();
+            if (!IsPrivateMode)
+            {
+                Context.Response.StatusCode = 401;
+                Context.Response.StatusDescription = "Unauthorized";
+                Response = writer.Write(new
+                {
+                    ErrorCode = 401,
+                });
+                return;
+            }
+            var reader = new JsonFx.Json.JsonReader();
+            var data = (Dictionary<string, object>)reader.Read(Body);
+            string message = (string)data["Message"];
+            object sender = "server";
+            data.TryGetValue("Sender", out sender);
+
+            Plugin.Server.SayChatMessage(true, message, (string)sender);
+
+            Response = writer.Write(new
+            {
+                Success = true,
+            });
         }
         internal void RespondChat()
         {
@@ -230,14 +261,9 @@ namespace HttpInfoServer
             var data = (Dictionary<string, object>)reader.Read(Body);
             string message = (string)data["Message"];
 
-            if (message.Length > 200)
-            {
-                message = message.Substring(0, 200);
-            }
-
             var chatColor = "[" + Distance::ColorEx.ColorToHexNGUI(Distance::ColorEx.PlayerRainbowColor(DistancePlayer.Index)) + "]";
 
-            Plugin.Server.SayChatMessage(true, chatColor + DistancePlayer.Name + "[FFFFFF]: " + message + "[-]");
+            Plugin.Server.SayChatMessage(true, chatColor + DistancePlayer.Name + "[FFFFFF]: " + message + "[-]", DistancePlayer.UnityPlayerGuid);
             
             Response = writer.Write(new
             {
@@ -378,8 +404,8 @@ namespace HttpInfoServer
                 query.Add(key, Context.Request.QueryString[key]);
             }
 
-            int start = 0;
-            int count = 0;
+            int start = autoServer.currentLevelIndex;
+            int count = 10;
             string startStr = "";
             string countStr = "";
             query.TryGetValue("Start", out startStr);
@@ -515,6 +541,8 @@ namespace HttpInfoServer
                 var chatJson = new ChatJsonData();
                 chatJson.Timestamp = chat.Timestamp;
                 chatJson.Chat = chat.Chat;
+                chatJson.Sender = chat.SenderGuid;
+                chatJson.Guid = chat.ChatGuid;
                 chatLog.Add(chatJson);
             }
             

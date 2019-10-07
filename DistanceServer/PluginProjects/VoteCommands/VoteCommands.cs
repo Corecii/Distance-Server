@@ -24,6 +24,8 @@ namespace VoteCommands
         public double ExtendThreshold = .7;
         public double ExtendTime = 3 * 60;
         public double SoftBlocklistThreshold = .7;
+        public int RecentMapsSoftBlocklistRoundCount = 5;
+        public double VoteNotSafetyTime = 20.0;
 
         public bool HasSkipped = false;
         public Dictionary<string, int> RecentMaps = new Dictionary<string, int>(); // <relativeLevelPath, expireLevelIndex>
@@ -31,6 +33,7 @@ namespace VoteCommands
         public Dictionary<string, double> TempMuted = new Dictionary<string, double>(); // <playerGuid, expireUnixTime>
 
         public Dictionary<string, DistanceLevel> PlayerVotes = new Dictionary<string, DistanceLevel>(); // <playerGuid, level>
+        public Dictionary<string, double> PlayerVoteTimes = new Dictionary<string, double>(); // <playerGuid, voteUnixTime>
         public Dictionary<string, HashSet<string>> AgainstVotes = new Dictionary<string, HashSet<string>>(); // <relativeLevelPath, Set<playerGuid>>
         public List<string> SkipVotes = new List<string>(); // <playerGuid>
         public List<string> ExtendVotes = new List<string>(); // <playerGuid>
@@ -88,7 +91,9 @@ namespace VoteCommands
                 TryGetValue(dictionary, "SkipThreshold", ref SkipThreshold);
                 TryGetValue(dictionary, "ExtendThreshold", ref ExtendThreshold);
                 TryGetValue(dictionary, "ExtendTime", ref ExtendTime);
+                TryGetValue(dictionary, "VoteNotSafetyTime", ref VoteNotSafetyTime);
                 TryGetValue(dictionary, "SoftBlocklistThreshold", ref SoftBlocklistThreshold);
+                TryGetValue(dictionary, "RecentMapsSoftBlocklistRoundCount", ref RecentMapsSoftBlocklistRoundCount);
                 var listBase = new object[0];
                 TryGetValue(dictionary, "RequiredTags", ref listBase);
                 foreach (object valBase in listBase)
@@ -169,6 +174,10 @@ namespace VoteCommands
                 DelayedExtensions = 0;
                 SkipVotes.Clear();
                 HasSkipped = false;
+                if (RecentMapsSoftBlocklistRoundCount > 0)
+                {
+                    RecentMaps.Add(Server.CurrentLevel.RelativeLevelPath, Server.CurrentLevelId + RecentMapsSoftBlocklistRoundCount);
+                }
             });
 
             Server.OnModeStartedEvent.Connect(1, () =>
@@ -217,6 +226,18 @@ namespace VoteCommands
             });
         }
 
+        public void Mute(string guid, double until)
+        {
+            if (TempMuted.ContainsKey(guid))
+            {
+                TempMuted[guid] = Math.Max(TempMuted[guid], until);
+            }
+            else
+            {
+                TempMuted[guid] = until;
+            }
+        }
+
         BasicAutoServer.BasicAutoServer autoServer;
         void OnAdvancingToNextLevel()
         {
@@ -229,10 +250,11 @@ namespace VoteCommands
                     if (!LeftAt.ContainsKey(vote.Key) || DistanceServerMain.UnixTime - LeftAt[vote.Key] > 5 * 60)
                     {
                         PlayerVotes.Remove(vote.Key);
+                        PlayerVoteTimes.Remove(vote.Key);
                         LeftAt.Remove(vote.Key);
                     }
                 }
-                else
+                else if (PlayerVoteTimes[vote.Key] <= DistanceServerMain.UnixTime - VoteNotSafetyTime)
                 {
                     int count = 0;
                     validVotes.TryGetValue(vote.Value.RelativeLevelPath, out count);
@@ -333,6 +355,7 @@ namespace VoteCommands
                 {
                     voteCount++;
                     PlayerVotes.Remove(vote.Key);
+                    PlayerVoteTimes.Remove(vote.Key);
                     if (firstPlayer == null)
                     {
                         firstPlayer = vote.Key;
@@ -390,7 +413,6 @@ namespace VoteCommands
                 if (mutedUntil > DistanceServerMain.UnixTime)
                 {
                     isMuted = true;
-                    Server.DeleteChatMessages(data.Chats, true);
                 }
                 else
                 {
@@ -516,6 +538,7 @@ namespace VoteCommands
                         levelName = $" for [00FF00]{PlayerVotes[player.UnityPlayerGuid].Name}[-]";
                     }
                     PlayerVotes.Remove(player.UnityPlayerGuid);
+                    PlayerVoteTimes.Remove(player.UnityPlayerGuid);
                     Server.SayLocalChatMessage(player.UnityPlayer, $"Removed your vote" + levelName);
                 }
                 return;
@@ -689,6 +712,7 @@ namespace VoteCommands
                         yield break;
                     }
                     PlayerVotes[searcher.UnityPlayerGuid] = result;
+                    PlayerVoteTimes[searcher.UnityPlayerGuid] = DistanceServerMain.UnixTime;
                     Server.SayChatMessage(true, $"Set {searcher.Name}'s vote to [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
                     if (data.SoftBlocklist)
                     {
@@ -730,8 +754,8 @@ namespace VoteCommands
                         if (AgainstVotes[key].Count == 0)
                         {
                             AgainstVotes.Remove(key);
-                            Server.SayChatMessage(true, $"Cleared {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
                         }
+                        Server.SayChatMessage(true, $"Cleared {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
                     }
                     else
                     {

@@ -60,7 +60,7 @@ public class DistancePlayer : IExternalData
     }
     public void DeleteChatMessage(DistanceChat message, bool resendChat=false)
     {
-        ChatLog.Remove(message);
+        ChatLog.RemoveAll(item => item.ChatGuid == message.ChatGuid);
         if (resendChat)
         {
             ResendChat();
@@ -70,7 +70,7 @@ public class DistancePlayer : IExternalData
     {
         foreach (var message in messages)
         {
-            ChatLog.Remove(message);
+            ChatLog.RemoveAll(item => item.ChatGuid == message.ChatGuid);
         }
         if (resendChat)
         {
@@ -88,6 +88,7 @@ public class DistancePlayer : IExternalData
         {
             chatString = chatString.Substring(1);
         }
+        Log.Debug($"Resending chat to {Name}:\n{chatString}");
         DistanceServerMain.GetEvent<Events.ServerToClient.SetServerChat>().Fire(
             UnityPlayer,
             new Distance::Events.ServerToClient.SetServerChat.Data(chatString)
@@ -114,7 +115,7 @@ public class DistancePlayer : IExternalData
             {
                 DistanceServerMain.GetEvent<Events.ServerToClient.FinalCountdownActivate>().Fire(
                     UnityPlayer,
-                    new Distance::Events.RaceMode.FinalCountdownActivate.Data(value, (int)(value - Server.ModeTime))
+                    new Distance::Events.RaceMode.FinalCountdownActivate.Data(value, (int)(value - Server.ModeTime + 0.5))
                 );
             }
         }

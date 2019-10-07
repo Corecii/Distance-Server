@@ -166,11 +166,11 @@ public class DistanceServer
                 ChatLog.RemoveAt(0);
             }
         }
-        OnChatMessageEvent.Fire(new DistanceChatEventData(message, chats, senderGuid));
         foreach (var distancePlayer in DistancePlayers.Values)
         {
             distancePlayer.AddChatMessagesRaw(message, chats, senderGuid);
         }
+        OnChatMessageEvent.Fire(new DistanceChatEventData(message, chats, senderGuid));
     }
     public void AddChatMessage(string message, string senderGuid = "server")
     {
@@ -182,12 +182,12 @@ public class DistanceServer
         }
         AddChatMessagesRaw(message, chats.ToArray(), senderGuid);
     }
-    public void SayChatMessage(bool addMessage, string message)
+    public void SayChatMessage(bool addMessage, string message, string senderGuid = "server")
     {
         message = "[FFFFFF]" + message + "[-]";
         if (addMessage)
         {
-            AddChatMessage(message);
+            AddChatMessage(message, senderGuid);
         }
         DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Fire(
             RPCMode.Others,
@@ -205,7 +205,7 @@ public class DistanceServer
     }
     public void DeleteChatMessage(DistanceChat message, bool resendChat = false)
     {
-        ChatLog.Remove(message);
+        ChatLog.RemoveAll(item => item.ChatGuid == message.ChatGuid);
         foreach (var distancePlayer in DistancePlayers.Values)
         {
             distancePlayer.DeleteChatMessage(message, resendChat);
@@ -215,7 +215,7 @@ public class DistanceServer
     {
         foreach (var message in messages)
         {
-            ChatLog.Remove(message);
+            ChatLog.RemoveAll(item => item.ChatGuid == message.ChatGuid);
         }
         foreach (var distancePlayer in DistancePlayers.Values)
         {

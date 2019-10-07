@@ -10,6 +10,7 @@ public class DistanceChat
     public double Timestamp;
     public string Chat;
     public string SenderGuid;
+    public string ChatGuid;
 
     public double NetworkTime
     {
@@ -24,6 +25,7 @@ public class DistanceChat
         Timestamp = timestamp;
         Chat = chat;
         SenderGuid = senderGuid;
+        ChatGuid = Guid.NewGuid().ToString();
     }
 
     public DistanceChat(string chat, string senderGuid="server")
@@ -31,5 +33,6 @@ public class DistanceChat
         Timestamp = DistanceServerMain.UnixTime;
         Chat = chat;
         SenderGuid = senderGuid;
+        ChatGuid = Guid.NewGuid().ToString();
     }
 }
