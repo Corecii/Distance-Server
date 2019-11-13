@@ -88,6 +88,8 @@ namespace HttpInfoServer
         public string Guid;
         public double Timestamp;
         public string Chat;
+        public string Type;
+        public string Description;
     }
 
     class RequestInfo
@@ -175,14 +177,18 @@ namespace HttpInfoServer
 
         internal void Respond()
         {
+            Log.DebugLine("HTTP INFO RESPOND", 0);
             var location = Context.Request.Url.PathAndQuery.ToLower().Trim();
+            Log.DebugLine("HTTP INFO RESPOND", 1);
             if (location.Length >= 9 && location.Substring(0, 9) == "/playlist")
             {
                 RespondPlaylist();
             }
             else if (location == "/summary")
             {
+                Log.DebugLine("HTTP INFO RESPOND", 2);
                 RespondSummary();
+                Log.DebugLine("HTTP INFO RESPOND", 3);
             }
             else if (location == "/links")
             {
@@ -237,7 +243,12 @@ namespace HttpInfoServer
             object sender = "server";
             data.TryGetValue("Sender", out sender);
 
-            Plugin.Server.SayChatMessage(true, message, (string)sender);
+            Plugin.Server.SayChat(new DistanceChat(message)
+            {
+                SenderGuid = (string)sender,
+                ChatType = DistanceChat.ChatTypeEnum.ServerCustom,
+                ChatDescription = "HttpServer:ServerChat"
+            });
 
             Response = writer.Write(new
             {
@@ -263,7 +274,12 @@ namespace HttpInfoServer
 
             var chatColor = "[" + Distance::ColorEx.ColorToHexNGUI(Distance::ColorEx.PlayerRainbowColor(DistancePlayer.Index)) + "]";
 
-            Plugin.Server.SayChatMessage(true, chatColor + DistancePlayer.Name + "[FFFFFF]: " + message + "[-]", DistancePlayer.UnityPlayerGuid);
+            Plugin.Server.SayChat(new DistanceChat(chatColor + DistancePlayer.Name + "[FFFFFF]: " + message + "[-]")
+            {
+                SenderGuid = DistancePlayer.UnityPlayerGuid,
+                ChatType = DistanceChat.ChatTypeEnum.PlayerChatMessage,
+                ChatDescription = "HttpServer:PlayerChat"
+            });
             
             Response = writer.Write(new
             {
@@ -338,7 +354,7 @@ namespace HttpInfoServer
                 var player = Plugin.Manager.Server.GetDistancePlayer(guid);
                 if (player != null)
                 {
-                    Plugin.Manager.Server.SayLocalChatMessage(player.UnityPlayer, "Your game session has been automatically linked with a web session. You can now vote and chat from the website.\nIf this wasn't you, type [00FFFF]/unlink[-]");
+                    Plugin.Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("HttpServer:Link", "Your game session has been automatically linked with a web session. You can now vote and chat from the website.\nIf this wasn't you, type [00FFFF]/unlink[-]"));
                 }
             }
         }
@@ -442,8 +458,35 @@ namespace HttpInfoServer
                 },
             });
         }
+        internal VotingJsonData RespondSummaryVote()
+        {
+            VotingJsonData votingJsonData = null;
+            Log.DebugLine("HTTP INFO VOTE", 0);
+            var voteCommands = DistanceServerMain.Instance.GetPlugin<VoteCommands.VoteCommands>();
+            Log.DebugLine("HTTP INFO VOTE", 1);
+            if (voteCommands != null)
+            {
+                votingJsonData = new VotingJsonData();
+                votingJsonData.SkipThreshold = voteCommands.SkipThreshold;
+                votingJsonData.HasSkipped = voteCommands.HasSkipped;
+                votingJsonData.ExtendThreshold = voteCommands.ExtendThreshold;
+                votingJsonData.ExtendTime = voteCommands.ExtendTime;
+                votingJsonData.LeftAt = voteCommands.LeftAt;
+                votingJsonData.PlayerVotes = voteCommands.PlayerVotes;
+                votingJsonData.SkipVotes = voteCommands.SkipVotes.ToArray();
+                votingJsonData.ExtendVotes = voteCommands.ExtendVotes.ToArray();
+                var against = new Dictionary<string, int>();
+                foreach (var pair in voteCommands.AgainstVotes)
+                {
+                    against[pair.Key] = pair.Value.Count;
+                }
+                votingJsonData.AgainstVotes = against;
+            }
+            return votingJsonData;
+        }
         internal void RespondSummary()
         {
+            Log.DebugLine("HTTP INFO SUMMARY", 0);
             var server = DistanceServerMain.Instance.Server;
             var writer = new JsonFx.Json.JsonWriter();
             
@@ -514,35 +557,25 @@ namespace HttpInfoServer
                 autoServerJson.StartingPlayerGuids = autoServer.StartingPlayerGuids.ToArray();
             }
 
+            Log.DebugLine("HTTP INFO SUMMARY", 1);
             VotingJsonData votingJsonData = null;
-            var voteCommands = DistanceServerMain.Instance.GetPlugin<VoteCommands.VoteCommands>();
-            if (voteCommands != null)
+            try
             {
-                votingJsonData = new VotingJsonData();
-                votingJsonData.SkipThreshold = voteCommands.SkipThreshold;
-                votingJsonData.HasSkipped = voteCommands.HasSkipped;
-                votingJsonData.ExtendThreshold = voteCommands.ExtendThreshold;
-                votingJsonData.ExtendTime = voteCommands.ExtendTime;
-                votingJsonData.LeftAt = voteCommands.LeftAt;
-                votingJsonData.PlayerVotes = voteCommands.PlayerVotes;
-                votingJsonData.SkipVotes = voteCommands.SkipVotes.ToArray();
-                votingJsonData.ExtendVotes = voteCommands.ExtendVotes.ToArray();
-                var against = new Dictionary<string, int>();
-                foreach (var pair in voteCommands.AgainstVotes)
-                {
-                    against[pair.Key] = pair.Value.Count;
-                }
-                votingJsonData.AgainstVotes = against;
+                votingJsonData = RespondSummaryVote();
             }
+            catch (Exception e) { } // TODO
+            Log.DebugLine("HTTP INFO SUMMARY", 2);
 
             var chatLog = new List<ChatJsonData>();
             foreach (var chat in server.ChatLog)
             {
                 var chatJson = new ChatJsonData();
                 chatJson.Timestamp = chat.Timestamp;
-                chatJson.Chat = chat.Chat;
+                chatJson.Chat = chat.Message;
                 chatJson.Sender = chat.SenderGuid;
                 chatJson.Guid = chat.ChatGuid;
+                chatJson.Type = chat.ChatType.ToString();
+                chatJson.Description = chat.ChatDescription;
                 chatLog.Add(chatJson);
             }
             
@@ -750,7 +783,7 @@ namespace HttpInfoServer
                     {
                         Links.Remove(key);
                     }
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"Your game session has been unlinked from {keysToRemove.Count} web session{(keysToRemove.Count == 1 ? "s" : "")}");
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("HttpServer:Link", $"Your game session has been unlinked from {keysToRemove.Count} web session{(keysToRemove.Count == 1 ? "s" : "")}"));
                     return;
                 }
 
@@ -765,11 +798,11 @@ namespace HttpInfoServer
                         {
                             add = $"\nVisit {HelpTextWebsite.Replace("$linkcode", GetOrGenerateCode(player.UnityPlayerGuid))} to view and vote online.";
                         }
-                        Server.SayLocalChatMessage(player.UnityPlayer, "Invalid link code!"+add);
+                        Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("HttpServer:Link", "Invalid link code!"+add));
                     }
                     Links[CodesReverse[code]] = player.UnityPlayerGuid;
                     CodesReverse.Remove(code);
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"Your game session has been linked to a web session!\nType [00FFFF]/unlink[-] to undo this.");
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("HttpServer:Link", $"Your game session has been linked to a web session!\nType [00FFFF]/unlink[-] to undo this."));
                     return;
                 }
 
@@ -778,7 +811,7 @@ namespace HttpInfoServer
                 {
                     if (HelpTextWebsite != null)
                     {
-                        Server.SayLocalChatMessage(player.UnityPlayer, $"Visit {HelpTextWebsite.Replace("$linkcode", GetOrGenerateCode(player.UnityPlayerGuid))} to view and vote online.");
+                        Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("HttpServer:Link", $"Visit {HelpTextWebsite.Replace("$linkcode", GetOrGenerateCode(player.UnityPlayerGuid))} to view and vote online."));
                     }
                     return;
                 }

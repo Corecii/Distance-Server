@@ -42,7 +42,7 @@ public class DistanceServer
     }
     public int Port = 45671;
 
-    bool reportToMasterServer = true;
+    bool reportToMasterServer = false;
     public bool ReportToMasterServer
     {
         get
@@ -154,53 +154,73 @@ public class DistanceServer
     public bool HasModeStarted = false;
     public double ModeStartTime = -1.0;
 
-    public LocalEvent<DistanceChatEventData> OnChatMessageEvent = new LocalEvent<DistanceChatEventData>();
+    public LocalEvent<DistanceChat> OnChatMessageEvent = new LocalEvent<DistanceChat>();
     public List<DistanceChat> ChatLog = new List<DistanceChat>();
-    public void AddChatMessagesRaw(string message, DistanceChat[] chats, string senderGuid = "server")
+    public int ChatLogLineCount = 0;
+    public void AddChat(DistanceChat chat)
     {
-        foreach (DistanceChat chat in chats)
+        ChatLog.Add(chat);
+        ChatLogLineCount += chat.Lines.Length;
+        if (ChatLogLineCount - ChatLog[0].Lines.Length >= 64)
         {
-            ChatLog.Add(chat);
-            if (ChatLog.Count > 64)
-            {
-                ChatLog.RemoveAt(0);
-            }
+            ChatLogLineCount = ChatLogLineCount - ChatLog[0].Lines.Length;
+            ChatLog.RemoveAt(0);
         }
         foreach (var distancePlayer in DistancePlayers.Values)
         {
-            distancePlayer.AddChatMessagesRaw(message, chats, senderGuid);
+            distancePlayer.AddChat(chat);
         }
-        OnChatMessageEvent.Fire(new DistanceChatEventData(message, chats, senderGuid));
+        OnChatMessageEvent.Fire(chat);
     }
-    public void AddChatMessage(string message, string senderGuid = "server")
+
+    public void SayChat(DistanceChat chat, bool addMessage = true)
     {
-        var chats = new List<DistanceChat>();
-        foreach (string line in message.Split(new char[] { '\n', '\r'}, StringSplitOptions.RemoveEmptyEntries))
-        {
-            var chat = new DistanceChat(line, senderGuid);
-            chats.Add(chat);
-        }
-        AddChatMessagesRaw(message, chats.ToArray(), senderGuid);
-    }
-    public void SayChatMessage(bool addMessage, string message, string senderGuid = "server")
-    {
-        message = "[FFFFFF]" + message + "[-]";
-        if (addMessage)
-        {
-            AddChatMessage(message, senderGuid);
-        }
+        AddChat(chat);
         DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Fire(
             RPCMode.Others,
-            new Distance::Events.ClientToAllClients.ChatMessage.Data(message)
+            new Distance::Events.ClientToAllClients.ChatMessage.Data(chat.Message)
         );
     }
-    public void SayLocalChatMessage(NetworkPlayer player, string message)
+
+    public string GetChatLogString()
+    {
+        var builder = new StringBuilder();
+        var currentLogIndex = ChatLog.Count - 1;
+        var currentLineIndex = 1;
+        for (var i = 0; i < 64; i++)
+        {
+            if (currentLogIndex < 0)
+            {
+                break;
+            }
+            var currentLog = ChatLog[currentLogIndex];
+            if (currentLog.Lines.Length <= 0 || currentLog.Lines.Length - currentLineIndex < 0)
+            {
+                currentLogIndex--;
+                currentLineIndex = 1;
+            }
+            else
+            {
+                var line = currentLog.Lines[currentLog.Lines.Length - currentLineIndex];
+                builder.Insert(0, line + "\n");
+                currentLineIndex++;
+            }
+        }
+        var log = builder.ToString();
+        if (log.Length > 0)
+        {
+            return log.Substring(0, log.Length - 1);
+        }
+        return log;
+    }
+
+    public void SayLocalChat(NetworkPlayer player, DistanceChat chat)
     {
         DistancePlayer distancePlayer = null;
         DistancePlayers.TryGetValue(player.guid, out distancePlayer);
         if (distancePlayer != null)
         {
-            distancePlayer.SayLocalChatMessage(message);
+            distancePlayer.SayLocalChat(chat);
         }
     }
     public void DeleteChatMessage(DistanceChat message, bool resendChat = false)
@@ -209,17 +229,6 @@ public class DistanceServer
         foreach (var distancePlayer in DistancePlayers.Values)
         {
             distancePlayer.DeleteChatMessage(message, resendChat);
-        }
-    }
-    public void DeleteChatMessages(DistanceChat[] messages, bool resendChat = false)
-    {
-        foreach (var message in messages)
-        {
-            ChatLog.RemoveAll(item => item.ChatGuid == message.ChatGuid);
-        }
-        foreach (var distancePlayer in DistancePlayers.Values)
-        {
-            distancePlayer.DeleteChatMessages(messages, resendChat);
         }
     }
     public void ResendChat()
@@ -366,7 +375,19 @@ public class DistanceServer
         });
         DistanceServerMain.GetEvent<Events.ClientToAllClients.ChatMessage>().Connect((data, info) =>
         {
-            AddChatMessage(data.message_, info.sender.guid);
+            var chatTypeData = new Tuple<DistanceChat.ChatTypeEnum, string>(DistanceChat.ChatTypeEnum.Unknown, "Unknown");
+            var distancePlayer = GetDistancePlayer(info.sender);
+            if (distancePlayer != null && distancePlayer.Valid)
+            {
+                chatTypeData = DistanceChat.DeduceChatType(data.message_, distancePlayer.Name);
+            }
+            var chat = new DistanceChat(data.message_)
+            {
+                SenderGuid = info.sender.guid,
+                ChatType = chatTypeData.Item1,
+                ChatDescription = chatTypeData.Item2,
+            };
+            AddChat(chat);
         });
         DistanceServerMain.GetEvent<Events.ClientToAllClients.SetReady>().Connect((data, info) =>
         {

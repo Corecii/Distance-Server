@@ -366,7 +366,8 @@ namespace VoteCommands
             LocalEventEmpty.EventConnection[] conns = new LocalEventEmpty.EventConnection[2];
             conns[0] = Server.OnModeStartedEvent.Connect(() =>
             {
-                Server.SayChatMessage(true, $"Chosen level is [00FF00]{level.Name}[-], voted for by {Server.GetDistancePlayer(firstPlayer).Name}" + (voteCount > 1 ? $" and {voteCount - 1} others" : ""));
+                var chat = DistanceChat.Server("VoteCommands:ChosenLevel", $"Chosen level is [00FF00]{level.Name}[-], voted for by {Server.GetDistancePlayer(firstPlayer).Name}" + (voteCount > 1 ? $" and {voteCount - 1} others" : ""));
+                Server.SayChat(chat);
                 foreach (var conn in conns)
                 {
                     conn.Disconnect();
@@ -394,17 +395,22 @@ namespace VoteCommands
             Server.SendPlayerToLevel(player.UnityPlayer);
         }
 
-        void ProcessChatMessage(DistanceChatEventData data)
+        void ProcessChatMessage(DistanceChat data)
         {
+            Log.DebugLine("VC PC", 0);
             if (data.SenderGuid == "server")
             {
+                Log.DebugLine("VC PC", 1);
                 return;
             }
+            Log.DebugLine("VC PC", 2);
             var player = Server.GetDistancePlayer(data.SenderGuid);
             if (player == null)
             {
+                Log.DebugLine("VC PC", 3);
                 return;
             }
+            Log.DebugLine("VC PC", 4);
 
             var isMuted = false;
             if (TempMuted.ContainsKey(data.SenderGuid))
@@ -427,7 +433,7 @@ namespace VoteCommands
             match = Regex.Match(message, @"^/help$");
             if (match.Success)
             {
-                Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/vote /skip /extend /restart /not /clear[-]");
+                Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Help:Simple","[00FFFF]/vote /skip /extend /restart /not /clear[-]"));
             }
 
             match = Regex.Match(message, @"^/skip$");
@@ -435,18 +441,18 @@ namespace VoteCommands
             {
                 if (isMuted)
                 {
-                    Server.SayLocalChatMessage(player.UnityPlayer, "You are not allowed to vote while muted");
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Muted", "You are not allowed to vote while muted"));
                 }
                 else if (!SkipVotes.Contains(player.UnityPlayerGuid))
                 {
                     SkipVotes.Add(player.UnityPlayerGuid);
-                    Server.SayChatMessage(true, $"Added your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
+                    Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:SkipVoteAdded", $"Added your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}"));
                     CheckForSkip();
                 }
                 else
                 {
                     SkipVotes.Remove(player.UnityPlayerGuid);
-                    Server.SayChatMessage(true, $"Removed your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}");
+                    Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:SkipVoteRemoved",$"Removed your vote to skip the level {SkipVotes.Count}/{NeededVotesToSkipLevel}"));
                 }
                 return;
             }
@@ -457,18 +463,18 @@ namespace VoteCommands
 
                 if (isMuted)
                 {
-                    Server.SayLocalChatMessage(player.UnityPlayer, "You are not allowed to vote while muted");
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Muted", "You are not allowed to vote while muted"));
                 }
                 else if (!ExtendVotes.Contains(player.UnityPlayerGuid))
                 {
                     ExtendVotes.Add(player.UnityPlayerGuid);
-                    Server.SayChatMessage(true, $"Added your vote to extend the level {ExtendVotes.Count}/{NeededVotesToExtendLevel}");
+                    Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:ExtendVoteRemoved", $"Added your vote to extend the level {ExtendVotes.Count}/{NeededVotesToExtendLevel}"));
                     CheckForExtend();
                 }
                 else
                 {
                     ExtendVotes.Remove(player.UnityPlayerGuid);
-                    Server.SayChatMessage(true, $"Removed your vote to extend the level {ExtendVotes.Count}/{NeededVotesToExtendLevel}");
+                    Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:ExtendVoteRemoved", $"Removed your vote to extend the level {ExtendVotes.Count}/{NeededVotesToExtendLevel}"));
                 }
                 return;
             }
@@ -494,10 +500,10 @@ namespace VoteCommands
                 }
                 if (!restartOkay)
                 {
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"You cannot restart right now");
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:NoRestart", $"You cannot restart right now"));
                     return;
                 }
-                Server.SayLocalChatMessage(player.UnityPlayer, $"Restarting the level, just for you...");
+                Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Restart", $"Restarting the level, just for you..."));
                 DistanceServerMainStarter.Instance.StartCoroutine(RestartPlayerAfter(player, 2));
                 return;
             }
@@ -526,9 +532,9 @@ namespace VoteCommands
                 {
                     if (PlayerVotes.ContainsKey(player.UnityPlayerGuid))
                     {
-                        Server.SayLocalChatMessage(player.UnityPlayer, $"Your current vote is for [00FF00]{PlayerVotes[player.UnityPlayerGuid].Name}[-]");
+                        Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Help:CurrentVote", $"Your current vote is for [00FF00]{PlayerVotes[player.UnityPlayerGuid].Name}[-]"));
                     }
-                    Server.SayLocalChatMessage(player.UnityPlayer, "[00FFFF]/search name[-] to search\n[00FFFF]/clear[-] to clear your vote\n[00FFFF]/vote name[-] to vote for a level\n[00FFFF]/not name[-] to vote against a level\n[00FFFF]/skip[-] to vote to skip the level");
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Help:Detailed", "[00FFFF]/search name[-] to search\n[00FFFF]/clear[-] to clear your vote\n[00FFFF]/vote name[-] to vote for a level\n[00FFFF]/not name[-] to vote against a level\n[00FFFF]/skip[-] to vote to skip the level"));
                 }
                 else if (Regex.Match(message, @"^/clear$").Success)
                 {
@@ -539,14 +545,14 @@ namespace VoteCommands
                     }
                     PlayerVotes.Remove(player.UnityPlayerGuid);
                     PlayerVoteTimes.Remove(player.UnityPlayerGuid);
-                    Server.SayLocalChatMessage(player.UnityPlayer, $"Removed your vote" + levelName);
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Feedback:LevelVoteAdded", $"Removed your vote" + levelName));
                 }
                 return;
             }
 
             if (isMuted && isVote)
             {
-                Server.SayLocalChatMessage(player.UnityPlayer, "You are not allowed to vote while muted");
+                Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:Muted", "You are not allowed to vote while muted"));
                 return;
             }
 
@@ -570,7 +576,7 @@ namespace VoteCommands
                         player.Car.BroadcastDNF();
                     }
                 }
-                Server.SayChatMessage(true, $"Votes to skip the level have passed {(int)(SkipThreshold*100)}%. Skipping the level in 10 seconds.");
+                Server.SayChat(DistanceChat.Server("VoteCommands:SkipSuccess", $"Votes to skip the level have passed {(int)(SkipThreshold*100)}%. Skipping the level in 10 seconds."));
             }
         }
 
@@ -585,7 +591,7 @@ namespace VoteCommands
                 var success = autoServer.ExtendTimeout(ExtendTime);
                 if (success)
                 {
-                    Server.SayChatMessage(true, $"Votes to extend the level have passed {(int)(ExtendThreshold * 100)}%. Extending the level by {GetExtendTimeText()}");
+                    Server.SayChat(DistanceChat.Server("VoteCommands:ExtendSuccess", $"Votes to extend the level have passed {(int)(ExtendThreshold * 100)}%. Extending the level by {GetExtendTimeText()}"));
                 }
                 else
                 {
@@ -676,7 +682,7 @@ namespace VoteCommands
                 yield return search.TaskCoroutine;
                 if (search.HasError)
                 {
-                    Server.SayLocalChatMessage(searcher.UnityPlayer, $"Error when searching for \"{searchText}\"");
+                    Server.SayLocalChat(searcher.UnityPlayer, DistanceChat.Server("VoteCommands:Feedback:SearchError", $"Error when searching for \"{searchText}\""));
                     Log.Error($"Error when searching for \"{searchText}\": {search.Error}");
                     yield break;
                 }
@@ -685,7 +691,7 @@ namespace VoteCommands
             
             if (items.Count == 0)
             {
-                Server.SayLocalChatMessage(searcher.UnityPlayer, $"No levels found for \"{searchText}\"" + (onlyBy != null ? $" by \"{onlyBy}\"" : ""));
+                Server.SayLocalChat(searcher.UnityPlayer, DistanceChat.Server("VoteCommands:Feedback:SearchResult", $"No levels found for \"{searchText}\"" + (onlyBy != null ? $" by \"{onlyBy}\"" : "")));
                 yield break;
             }
             if (!isVote)
@@ -696,7 +702,7 @@ namespace VoteCommands
                     var item = items[i].WorkshopItemResult;
                     result += $"\n[00FF00]{item.ItemName}[-] by {item.AuthorName}" + (item.Rating == -1 ? "" : $" {item.Rating}/5");
                 }
-                Server.SayLocalChatMessage(searcher.UnityPlayer, result);
+                Server.SayLocalChat(searcher.UnityPlayer, DistanceChat.Server("VoteCommands:Feedback:SearchResult", result));
                 yield break;
             }
             else
@@ -708,12 +714,12 @@ namespace VoteCommands
                     OnFilterLevelRealtime.Fire(data);
                     if (data.HardBlocklist)
                     {
-                        Server.SayChatMessage(true, $"The level [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName} is blocked because {data.Reason}.");
+                        Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:VoteHardBlocked", $"The level [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName} is blocked because {data.Reason}."));
                         yield break;
                     }
                     PlayerVotes[searcher.UnityPlayerGuid] = result;
                     PlayerVoteTimes[searcher.UnityPlayerGuid] = DistanceServerMain.UnixTime;
-                    Server.SayChatMessage(true, $"Set {searcher.Name}'s vote to [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
+                    Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:VoteSuccess", $"Set {searcher.Name}'s vote to [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}"));
                     if (data.SoftBlocklist)
                     {
                         int count = PlayerVotes.Sum(pair =>
@@ -733,11 +739,11 @@ namespace VoteCommands
                         int needed = NeededVotesToExtendLevel - count;
                         if (needed > 0)
                         {
-                            Server.SayChatMessage(true, $"The level [00FF00]{result.Name}[-] is soft-blocked and needs {needed} more votes to be played because {data.Reason}.");
+                            Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:VoteSoftBlocked", $"The level [00FF00]{result.Name}[-] is soft-blocked and needs {needed} more votes to be played because {data.Reason}."));
                         }
                         else
                         {
-                            Server.SayChatMessage(true, $"The level [00FF00]{result.Name}[-] is soft-blocked but has met its required vote count and can now be played.");
+                            Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:VoteSuccessSoftBlock", $"The level [00FF00]{result.Name}[-] is soft-blocked but has met its required vote count and can now be played."));
                         }
                     }
                 }
@@ -755,12 +761,12 @@ namespace VoteCommands
                         {
                             AgainstVotes.Remove(key);
                         }
-                        Server.SayChatMessage(true, $"Cleared {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
+                        Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:AgainstVoteRemoved", $"Cleared {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}"));
                     }
                     else
                     {
                         AgainstVotes[key].Add(searcher.UnityPlayerGuid);
-                        Server.SayChatMessage(true, $"Set {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}");
+                        Server.SayChat(DistanceChat.Server("VoteCommands:Feedback:AgainstVoteAdded", $"Set {searcher.Name}'s vote against [00FF00]{result.Name}[-] by {items[0].WorkshopItemResult.AuthorName}"));
                     }
                 }
                 yield break;

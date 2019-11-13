@@ -208,7 +208,7 @@ namespace ChatFilterPlugin
             Server.OnChatMessageEvent.Connect(ProcessChatMessage);
         }
 
-        void ProcessChatMessage(DistanceChatEventData data)
+        void ProcessChatMessage(DistanceChat data)
         {
             if (data.SenderGuid == "server")
             {
@@ -282,7 +282,7 @@ namespace ChatFilterPlugin
                     WriteLogIfNecessary();
                     if (punishment > 0)
                     {
-                        player.SayLocalChatMessage($"[FF0000]Be nice![-] You are muted for {Math.Abs(punishment)} seconds.");
+                        player.SayLocalChat(DistanceChat.Server("ChatFilter:Muted", $"[FF0000]Be nice![-] You are muted for {Math.Abs(punishment)} seconds."));
                     }
                 }
             }
@@ -293,22 +293,20 @@ namespace ChatFilterPlugin
             isShadowMuted = level < PunishLevels.Count && PunishLevels[level] < 0;
             if (isShadowMuted)
             {
-                foreach (var chat in data.Chats)
-                {
-                    Server.ChatLog.RemoveAll(item => item.ChatGuid == chat.ChatGuid);
-                }
+                Server.DeleteChatMessage(data);
                 foreach (var otherPlayer in Server.ValidPlayers)
                 {
                     if (otherPlayer != player)
                     {
-                        otherPlayer.DeleteChatMessages(data.Chats, true);
+                        otherPlayer.DeleteChatMessage(data, true);
                     }
                 }
             }
             else
             {
-                Server.DeleteChatMessages(data.Chats, true);
+                Server.DeleteChatMessage(data, true);
             }
+            data.Blocked = true;
         }
     }
 }

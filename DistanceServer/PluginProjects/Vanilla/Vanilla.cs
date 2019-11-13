@@ -18,11 +18,11 @@ namespace Vanilla
             Log.Info("Vanilla Functionality Plugin started!");
             Server.OnPlayerValidatedEvent.Connect(player =>
             {
-                Server.AddChatMessage($"[FFE999]{player.Name} has joined the server!");
+                Server.AddChat(DistanceChat.Server("Vanilla:PlayerJoined", $"[FFE999]{player.Name} has joined the server!"));
             });
             Server.OnPlayerDisconnectedEvent.Connect(player =>
             {
-                Server.AddChatMessage($"[FFE999]{player.Name} has left the game[-]");
+                Server.AddChat(DistanceChat.Server("Vanilla:PlayerLeft", $"[FFE999]{player.Name} has left the game[-]"));
                 // TODO: implement timeout message
             });
         }
