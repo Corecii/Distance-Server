@@ -71,7 +71,7 @@ public class DistanceChat
         // matchName allows for mods to color and style names
         var matchName = TagMatcher + Regex.Replace(playerName, ".", match => Regex.Escape(match.ToString()) + TagMatcher);
         
-        if (Regex.IsMatch(message, @"^\[[0-9A-F]{6}\](" + matchName + @")[FFFFFF]: (.*)$"))
+        if (Regex.IsMatch(message, @"^\[[0-9A-F]{6}\](" + matchName + @")\[FFFFFF\]: (.*)$"))
         {
             return new Tuple<ChatTypeEnum, string>(ChatTypeEnum.PlayerChatMessage, "Distance");
         }
