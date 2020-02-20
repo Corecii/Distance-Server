@@ -1,6 +1,6 @@
 WindowsStandalone
 PlayerPath?
-D:/Development/Distance/DistanceServerStandalonePublic/DistanceServer/Build/Windows/DistanceServer/DistanceServer.exe
+D:/DevelopmentUnsynced/DistanceServer/ServerUnity/BuildWindows/BuildWindows.exe
 SceneListBegin?
 Assets/Scenes/Server.unity
 SceneListEnd?

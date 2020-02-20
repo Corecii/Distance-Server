@@ -10,11 +10,37 @@ public class DistanceServerMainStarter : MonoBehaviour {
     public static DistanceServerMainStarter Instance;
     public int StarterVersion = 1;
 
-    void Awake()
+    void Start()
     {
+        var launchArgs = Environment.GetCommandLineArgs();
+        for (var i = 0; i < launchArgs.Length; i++)
+        {
+            var arg = launchArgs[i];
+            if (arg == "-masterserverworkaround")
+            {
+                Debug.Log($"Requesting Distance host list from default master server");
+
+                MasterServer.ipAddress = "54.213.90.85";
+                MasterServer.port = 23466;
+
+                MasterServer.RequestHostList("Distance");
+            }
+        }
+
+        StartCoroutine(LoadSoon());
+    }
+
+    IEnumerator LoadSoon()
+    {
+        yield return new WaitForSeconds(5);
         Instance = this;
         LoadServerBaseExternal();
-	}
+    }
+    
+    void OnMasterServerEvent(MasterServerEvent msEvent)
+    {
+        External?.OnMasterServerEvent(msEvent);
+    }
 
     DistanceServerMainBase External = null;
 
@@ -97,7 +123,12 @@ public class DistanceServerMainStarter : MonoBehaviour {
     {
         External?.OnDestroy();
     }
-	 
+
+    void OnFailedToConnectToMasterServer(NetworkConnectionError error)
+    {
+        External?.OnFailedToConnectToMasterServer(error);
+    }
+
     [RPC]
     void ReceiveBroadcastAllEvent(byte[] bytes, NetworkMessageInfo info)
     {

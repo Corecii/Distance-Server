@@ -72,6 +72,11 @@ namespace WorkshopSearch
                 }
                 Log.DebugLine("Retrieve");
                 var levelIds = new List<string>();
+
+                if (searchResult.Result == null)
+                {
+                    Log.Warn("HtmlAgilityPack might not be loaded");
+                }
                 foreach (var item in searchResult.Result.Items)
                 {
                     levelIds.Add(item.PublishedFileId);

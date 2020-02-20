@@ -83,6 +83,7 @@ namespace BasicAutoServer
         string PrivateServerPassword = null;
         int MaxPlayers = 24;
         int Port = 45671;
+        bool UseNat = false;
         bool ReportToMasterServer = true;
         public double ReportToMasterServerInitialDelay = 0;
         double MasterServerReRegisterFrequency = 5 * 60.0;
@@ -113,6 +114,7 @@ namespace BasicAutoServer
                 TryGetValue(dictionary, "ServerName", ref ServerName);
                 TryGetValue(dictionary, "MaxPlayers", ref MaxPlayers);
                 TryGetValue(dictionary, "Port", ref Port);
+                TryGetValue(dictionary, "UseNat", ref UseNat);
                 TryGetValue(dictionary, "PrivateServerPassword", ref PrivateServerPassword);
                 TryGetValue(dictionary, "ReportToMasterServer", ref ReportToMasterServer);
                 TryGetValue(dictionary, "ReportToMasterServerInitialDelay", ref ReportToMasterServerInitialDelay);
@@ -212,6 +214,7 @@ namespace BasicAutoServer
             Server.ServerName = ServerName;
             Server.MaxPlayers = MaxPlayers;
             Server.Port = Port;
+            Server.UseNat = UseNat;
             if (ReportToMasterServerInitialDelay > 0)
             {
                 Server.ReportToMasterServer = false;

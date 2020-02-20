@@ -28,6 +28,8 @@ Distance.dll
 x64/
 x86/
 [Bb]uild/
+BuildLinux/
+BuildWindows/
 bld/
 [Bb]in/
 [Oo]bj/

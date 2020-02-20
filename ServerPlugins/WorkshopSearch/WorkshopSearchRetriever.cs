@@ -356,6 +356,10 @@ namespace WorkshopSearch
             {
                 Finished = true;
                 Error = request.error;
+                if (Error == null)
+                {
+                    Error = "Unkown error";
+                }
                 yield break;
             }
 
@@ -462,6 +466,10 @@ namespace WorkshopSearch
             catch (Exception e)
             {
                 Error = e.ToString();
+                if (Error == null)
+                {
+                    Error = "Unkown error";
+                }
             }
 
             Finished = true;

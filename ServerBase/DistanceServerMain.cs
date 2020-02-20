@@ -342,9 +342,10 @@ public class DistanceServerMain : DistanceServerMainBase
         Server.Init();
 
         LoadPlugins();
+        
+        Log.WriteLine($"Starting server version {Server.DistanceVersion} on port {Server.Port} (UseNat: {Server.UseNat})");
 
-        Log.WriteLine($"Starting server version {Server.DistanceVersion} on port {Server.Port}");
-        Network.InitializeServer(Server.MaxPlayers, Server.Port, false);
+        Network.InitializeServer(Server.MaxPlayers, Server.Port, Server.UseNat);
 	}
     
     public List<DistanceServerPlugin> Plugins = new List<DistanceServerPlugin>();
@@ -672,5 +673,15 @@ public class DistanceServerMain : DistanceServerMainBase
             num,
             num2
         });
+    }
+
+    public override void OnFailedToConnectToMasterServer(NetworkConnectionError error)
+    {
+        Server.OnFailedToConnectToMasterServer(error);
+    }
+
+    public override void OnMasterServerEvent(MasterServerEvent evt)
+    {
+        Server.OnMasterServer(evt);
     }
 }

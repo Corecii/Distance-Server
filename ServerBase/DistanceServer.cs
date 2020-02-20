@@ -40,6 +40,9 @@ public class DistanceServer
             Network.maxConnections = maxPlayers;
         }
     }
+
+    public bool UseNat = false;
+
     public int Port = 45671;
 
     bool reportToMasterServer = false;
@@ -261,6 +264,9 @@ public class DistanceServer
     public LocalEvent<DistancePlayer> OnPlayerValidatedEvent = new LocalEvent<DistancePlayer>();
     public LocalEvent<DistancePlayer> OnPlayerValidatedPreReplicationEvent = new LocalEvent<DistancePlayer>();
 
+    public LocalEvent<NetworkConnectionError> OnFailedToConnectToMasterServerEvent = new LocalEvent<NetworkConnectionError>();
+    public LocalEvent<MasterServerEvent> OnMasterServerEvent = new LocalEvent<MasterServerEvent>();
+
     ///
 
     public void Init()
@@ -446,6 +452,16 @@ public class DistanceServer
         Log.WriteLine("Started server");
         DoReportToMasterServer();
         OnServerInitializedEvent.Fire();
+    }
+
+    public void OnFailedToConnectToMasterServer(NetworkConnectionError error)
+    {
+        OnFailedToConnectToMasterServerEvent.Fire(error);
+    }
+
+    public void OnMasterServer(MasterServerEvent evt)
+    {
+        OnMasterServerEvent.Fire(evt);
     }
 
     public void RequestSubmitLobbyInfo(NetworkPlayer player)

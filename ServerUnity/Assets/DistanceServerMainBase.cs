@@ -22,6 +22,8 @@ public abstract class DistanceServerMainBase
     public abstract void OnServerInitialized();
     public abstract void OnPlayerConnected(NetworkPlayer player);
     public abstract void OnPlayerDisconnected(NetworkPlayer player);
+    public abstract void OnFailedToConnectToMasterServer(NetworkConnectionError error);
+    public abstract void OnMasterServerEvent(MasterServerEvent evt);
     public abstract void OnDestroy();
     public abstract void ReceiveBroadcastAllEvent(byte[] bytes, NetworkMessageInfo info);
     public abstract void ReceiveClientToServerEvent(byte[] bytes, NetworkMessageInfo info);
