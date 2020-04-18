@@ -15,6 +15,7 @@ namespace WorkshopSearch
         public int MaxResults = 0;
         public WorkshopSearchParameters Search = null;
         public DistanceFilterDelegate DistanceLevelFilter = null;
+        public List<DistanceSearchResultItem> LocalLevels = null;
     }
 
     public struct DistanceSearchResultItem
@@ -56,6 +57,14 @@ namespace WorkshopSearch
 
         public System.Collections.IEnumerator Retrieve()
         {
+            Log.SetDebugLineEnabled("RetrieveLocal", true);
+            if (Parameters.LocalLevels != null && Parameters.Search != null)
+            {
+                foreach (var level in Parameters.LocalLevels)
+                {
+                    
+                }
+            }
             Log.SetDebugLineEnabled("Retrieve", true);
             var search = Parameters.Search;
             var searchCount = 0;
