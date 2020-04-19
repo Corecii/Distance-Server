@@ -33,18 +33,18 @@ public class InstancedNetworkEventBase<T> : InstancedNetworkEventNonGeneric
     public override void ReceiveRPC(Distance::BitStreamReader bitStreamReader, UnityEngine.NetworkMessageInfo info)
     {
         T data = DeserializeRPC(bitStreamReader);
-        foreach (var handler in subscriptions)
+        foreach (var conn in subscriptions)
         {
-            handler(data);
+            conn.Handler(data);
         }
         ReceiveInstanced(instance, data);
     }
 
     public void ReceiveRPC(T data)
     {
-        foreach (var handler in subscriptions)
+        foreach (var conn in subscriptions)
         {
-            handler(data);
+            conn.Handler(data);
         }
     }
 
@@ -56,28 +56,53 @@ public class InstancedNetworkEventBase<T> : InstancedNetworkEventNonGeneric
         });
     }
 
-    List<GenericNetworkEventHandler> subscriptions = new List<GenericNetworkEventHandler>();
+    List<NetworkEventConnection> subscriptions = new List<NetworkEventConnection>();
     public delegate void GenericNetworkEventHandler(T data);
-    public virtual void Connect(GenericNetworkEventHandler handler)
+    public virtual IEventConnection Connect(GenericNetworkEventHandler handler)
     {
-        subscriptions.Add(handler);
+        return Connect(0, handler);
+    }
+    public virtual IEventConnection Connect(int priority, GenericNetworkEventHandler handler)
+    {
+        var connection = new NetworkEventConnection(this, handler, priority);
+        subscriptions.Add(connection);
+        subscriptions.Sort((a, b) => a.Priority - b.Priority);
+        return connection;
+    }
+
+    public class NetworkEventConnection : IEventConnection
+    {
+        public InstancedNetworkEventBase<T> Event;
+        public GenericNetworkEventHandler Handler;
+        public int Priority { get; set; }
+        public NetworkEventConnection(InstancedNetworkEventBase<T> evt, GenericNetworkEventHandler handler, int priority)
+        {
+            Event = evt;
+            Handler = handler;
+            Priority = priority;
+        }
+
+        public void Disconnect()
+        {
+            Event.subscriptions.Remove(this);
+        }
     }
 
     public void ReceiveInstanced(object instance, Distance::BitStreamReader bitStreamReader)
     {
         T data = DeserializeRPC(bitStreamReader);
         ReceiveRPC(data);
-        foreach (var handler in instancedSubscriptions)
+        foreach (var conn in instancedSubscriptions)
         {
-            handler(instance, data);
+            conn.Handler(instance, data);
         }
     }
 
     public void ReceiveInstanced(object instance, T data)
     {
-        foreach (var handler in instancedSubscriptions)
+        foreach (var conn in instancedSubscriptions)
         {
-            handler(instance, data);
+            conn.Handler(instance, data);
         }
     }
 
@@ -89,12 +114,40 @@ public class InstancedNetworkEventBase<T> : InstancedNetworkEventNonGeneric
         });
     }
 
-    List<GenericInstancedNetworkEventHandler> instancedSubscriptions = new List<GenericInstancedNetworkEventHandler>();
+
+
+    List<InstancedNetworkEventConnection> instancedSubscriptions = new List<InstancedNetworkEventConnection>();
     public delegate void GenericInstancedNetworkEventHandler(object instance, T data);
-    public virtual void Connect(GenericInstancedNetworkEventHandler handler)
+    public virtual IEventConnection Connect(GenericInstancedNetworkEventHandler handler)
     {
-        instancedSubscriptions.Add(handler);
+        return Connect(0, handler);
     }
+    public virtual IEventConnection Connect(int priority, GenericInstancedNetworkEventHandler handler)
+    {
+        var connection = new InstancedNetworkEventConnection(this, handler, priority);
+        instancedSubscriptions.Add(connection);
+        instancedSubscriptions.Sort((a, b) => a.Priority - b.Priority);
+        return connection;
+    }
+
+    public class InstancedNetworkEventConnection : IEventConnection
+    {
+        public InstancedNetworkEventBase<T> Event;
+        public GenericInstancedNetworkEventHandler Handler;
+        public int Priority { get; set; }
+        public InstancedNetworkEventConnection(InstancedNetworkEventBase<T> evt, GenericInstancedNetworkEventHandler handler, int priority)
+        {
+            Event = evt;
+            Handler = handler;
+            Priority = priority;
+        }
+
+        public void Disconnect()
+        {
+            Event.instancedSubscriptions.Remove(this);
+        }
+    }
+
 
     public void With(InstancedNetworkEventBase<T> evt)
     {

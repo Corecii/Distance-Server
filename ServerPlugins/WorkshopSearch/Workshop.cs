@@ -14,14 +14,14 @@ namespace WorkshopSearch
         {
             return new WorkshopSearchRetriever(parameters, startCoroutine);
         }
-        public static DistanceLevel.WorkshopLevelRetreiver RetrieveDistanceLevels(WorkshopItem[] items)
+        public static DistanceLevel.WorkshopLevelRetreiver RetrieveDistanceLevels(WorkshopItem[] items, string gameMode = "Sprint")
         {
             List<string> levelIds = new List<string>(items.Length);
             foreach (var item in items)
             {
                 levelIds.Add(item.PublishedFileId);
             }
-            return DistanceLevel.RetrieveWorkshopLevel(levelIds);
+            return DistanceLevel.RetrieveWorkshopLevel(levelIds, true, gameMode);
         }
     }
 }

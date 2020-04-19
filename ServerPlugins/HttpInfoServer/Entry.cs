@@ -553,7 +553,7 @@ namespace HttpInfoServer
                 autoServerJson.LevelTimeout = autoServer.LevelTimeout;
                 autoServerJson.WelcomeMessage = autoServer.WelcomeMessage;
                 autoServerJson.AdvanceWhenStartingPlayersFinish = autoServer.AdvanceWhenStartingPlayersFinish;
-                autoServerJson.LevelEndTime = DistanceServerMain.NetworkTimeToUnixTime(autoServer.LevelEndTime);
+                autoServerJson.LevelEndTime = DistanceServerMain.NetworkTimeToUnixTime(autoServer.SprintMode?.LevelEndTime ?? -1.0);
                 autoServerJson.StartingPlayerGuids = autoServer.StartingPlayerGuids.ToArray();
             }
 

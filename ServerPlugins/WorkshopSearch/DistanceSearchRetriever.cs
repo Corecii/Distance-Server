@@ -13,6 +13,7 @@ namespace WorkshopSearch
     {
         public int MaxSearch = 0;
         public int MaxResults = 0;
+        public string GameMode = "Sprint";
         public WorkshopSearchParameters Search = null;
         public DistanceFilterDelegate DistanceLevelFilter = null;
         public List<DistanceSearchResultItem> LocalLevels = null;
@@ -91,7 +92,7 @@ namespace WorkshopSearch
                     levelIds.Add(item.PublishedFileId);
                 }
                 Log.DebugLine("Retrieve");
-                var levelsResult = DistanceLevel.RetrieveWorkshopLevel(levelIds);
+                var levelsResult = DistanceLevel.RetrieveWorkshopLevel(levelIds, true, Parameters.GameMode);
                 yield return levelsResult.WebCoroutine;
                 var searchResults = new List<DistanceSearchResultItem>();
                 for (int i = 0; i < searchResult.Result.Items.Length; i++)

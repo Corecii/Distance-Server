@@ -265,9 +265,9 @@ namespace VoteCommands
 
             Server.OnModeStartedEvent.Connect(1, () =>
             {
-                if (DelayedExtensions != 0)
+                if (DelayedExtensions != 0 && autoServer.SprintMode != null)
                 {
-                    autoServer.ExtendTimeout(ExtendTime * DelayedExtensions);
+                    autoServer.SprintMode.ExtendTimeout(ExtendTime * DelayedExtensions);
                 }
             });
 
@@ -460,26 +460,22 @@ namespace VoteCommands
                 }
             }
             var nextLevelId = Server.CurrentLevelId + 1;
-            LocalEventEmpty.EventConnection[] conns = new LocalEventEmpty.EventConnection[2];
-            conns[0] = Server.OnModeStartedEvent.Connect(() =>
-            {
-                var chat = DistanceChat.Server("VoteCommands:ChosenLevel", $"Chosen level is [00FF00]{level.Name}[-], voted for by {Server.GetDistancePlayer(firstPlayer).Name}" + (voteCount > 1 ? $" and {voteCount - 1} others" : ""));
-                Server.SayChat(chat);
-                foreach (var conn in conns)
+            EventCleaner conns = new EventCleaner();
+            conns.Add(
+                Server.OnModeStartedEvent.Connect(() =>
                 {
-                    conn.Disconnect();
-                }
-            });
-            conns[1] = Server.OnLevelStartInitiatedEvent.Connect(() =>
-            {
-                if (Server.CurrentLevelId != nextLevelId)
+                    var chat = DistanceChat.Server("VoteCommands:ChosenLevel", $"Chosen level is [00FF00]{level.Name}[-], voted for by {Server.GetDistancePlayer(firstPlayer).Name}" + (voteCount > 1 ? $" and {voteCount - 1} others" : ""));
+                    Server.SayChat(chat);
+                    conns.Clean();
+                }),
+                Server.OnLevelStartInitiatedEvent.Connect(() =>
                 {
-                    foreach (var conn in conns)
+                    if (Server.CurrentLevelId != nextLevelId)
                     {
-                        conn.Disconnect();
+                        conns.Clean();
                     }
-                }
-            });
+                })
+            );
         }
 
         System.Collections.IEnumerator RestartPlayerAfter(DistancePlayer player, float time)
@@ -557,6 +553,11 @@ namespace VoteCommands
             match = Regex.Match(message, @"^/extend$");
             if (match.Success && SkipThreshold < 100 && SkipThreshold != -1)
             {
+                if (autoServer.SprintMode == null)
+                {
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:BadGameMode", $"You can only extend in Sprint."));
+                    return;
+                }
 
                 if (isMuted)
                 {
@@ -579,22 +580,32 @@ namespace VoteCommands
             match = Regex.Match(message, @"^/restart$");
             if (match.Success)
             {
+                if (autoServer.SprintMode == null)
+                {
+                    Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:BadGameMode", $"You can only restart in Sprint."));
+                    return;
+                }
+
                 var restartOkay = false;
+
                 if (autoServer.ServerStage == BasicAutoServer.BasicAutoServer.Stage.Started)
                 {
-                    restartOkay = true;
-                } else if (autoServer.ServerStage == BasicAutoServer.BasicAutoServer.Stage.Timeout && autoServer.LevelEndTime - DistanceServerMain.NetworkTime > 30)
-                {
-                    restartOkay = true;
+                    if (!autoServer.SprintMode.TimeoutStarted || autoServer.SprintMode.LevelEndTime - DistanceServerMain.NetworkTime > 30)
+                    {
+                        restartOkay = true;
+                    }
                 }
+
                 if (player.State != DistancePlayer.PlayerState.StartedMode || player.Car == null)
                 {
                     restartOkay = false;
                 }
+
                 if (Server.IsInLobby)
                 {
                     restartOkay = false;
                 }
+
                 if (!restartOkay)
                 {
                     Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("VoteCommands:NoRestart", $"You cannot restart right now"));
@@ -690,13 +701,13 @@ namespace VoteCommands
 
         public void CheckForExtend()
         {
-            if (Server.ValidPlayers.Count == 0)
+            if (Server.ValidPlayers.Count == 0 || autoServer.SprintMode == null)
             {
                 return;
             }
             if (ExtendVotes.Count >= NeededVotesToExtendLevel)
             {
-                var success = autoServer.ExtendTimeout(ExtendTime);
+                var success = autoServer.SprintMode.ExtendTimeout(ExtendTime);
                 if (success)
                 {
                     Server.SayChat(DistanceChat.Server("VoteCommands:ExtendSuccess", $"Votes to extend the level have passed {(int)(ExtendThreshold * 100)}%. Extending the level by {GetExtendTimeText()}"));
@@ -733,8 +744,9 @@ namespace VoteCommands
                         Days = -1,
                         NumPerPage = 30,
                         Page = 1,
-                        RequiredTags = new string[] { "Sprint" },
+                        RequiredTags = new string[] { },
                     },
+                    GameMode = autoServer.GameMode,
                     MaxSearch = 5 * 30,
                     MaxResults = 3,
                     DistanceLevelFilter = (levels) =>
@@ -765,8 +777,9 @@ namespace VoteCommands
                             Days = -1,
                             NumPerPage = 30,
                             Page = 1,
-                            RequiredTags = new string[] { "Sprint", tag },
+                            RequiredTags = new string[] { tag },
                         },
+                        GameMode = autoServer.GameMode,
                         MaxSearch = 5 * 30,
                         MaxResults = 3,
                         DistanceLevelFilter = (levels) =>

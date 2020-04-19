@@ -28,6 +28,10 @@ public class DistanceLevel : IExternalData
     {
         ExternalData.Add(val);
     }
+    public void RemoveExternalData<T>()
+    {
+        ExternalData.Remove(GetExternalData<T>());
+    }
 
     public DistanceLevel Clone()
     {

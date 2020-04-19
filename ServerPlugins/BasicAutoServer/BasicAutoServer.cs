@@ -20,7 +20,6 @@ namespace BasicAutoServer
         {
             Starting,
             Started,
-            Timeout,
             AllFinished,
         }
         
@@ -29,11 +28,9 @@ namespace BasicAutoServer
 
         double allFinishedAt = 0;
 
-        double countdownTime = -1.0;
+        public double CountdownTime = -1.0;
 
         public List<DistanceLevel> Playlist = new List<DistanceLevel>();
-
-        public double LevelEndTime = -1;
 
         public HashSet<string> StartingPlayerGuids = new HashSet<string>();
 
@@ -41,6 +38,10 @@ namespace BasicAutoServer
         bool masterServerDeregistered = false;
 
         int currentTip = 0;
+
+        public GameMode CurrentModeController = null;
+        public Sprint SprintMode = null;
+        public ReverseTag ReverseTagMode = null;
 
         ///
 
@@ -88,12 +89,16 @@ namespace BasicAutoServer
         public double ReportToMasterServerInitialDelay = 0;
         double MasterServerReRegisterFrequency = 5 * 60.0;
 
+        public string GameMode = "Sprint";
+
         public List<DistanceLevel> PresetLevels = new List<DistanceLevel>();
         public bool LoadWorkshopLevels = false;
         public bool AdvanceWhenStartingPlayersFinish = true;
         public bool AdvanceWhenAllPlayersFinish = true;
         public double IdleTimeout = 60;
         public double LevelTimeout = 7 * 60;
+        public double ReverseTagLevelTimeout = 10 * 60;
+        public double ReverseTagWinTime= 5 * 60;
         public string WelcomeMessage = null;
         public List<string> TipMessages = new List<string>();
 
@@ -119,12 +124,15 @@ namespace BasicAutoServer
                 TryGetValue(dictionary, "ReportToMasterServer", ref ReportToMasterServer);
                 TryGetValue(dictionary, "ReportToMasterServerInitialDelay", ref ReportToMasterServerInitialDelay);
                 TryGetValue(dictionary, "MasterServerReRegisterFrequency", ref MasterServerReRegisterFrequency);
+                TryGetValue(dictionary, "GameMode", ref GameMode);
                 TryGetValue(dictionary, "LoadWorkshopLevels", ref LoadWorkshopLevels);
                 TryGetValue(dictionary, "AdvanceWhenStartingPlayersFinish", ref AdvanceWhenStartingPlayersFinish);
                 TryGetValue(dictionary, "AdvanceWhenAllPlayersFinish", ref AdvanceWhenAllPlayersFinish);
                 TryGetValue(dictionary, "IdleTimeout", ref IdleTimeout);
                 TryGetValue(dictionary, "WelcomeMessage", ref WelcomeMessage);
                 TryGetValue(dictionary, "LevelTimeout", ref LevelTimeout);
+                TryGetValue(dictionary, "ReverseTagLevelTimeout", ref ReverseTagLevelTimeout);
+                TryGetValue(dictionary, "ReverseTagWinTime", ref ReverseTagWinTime);
                 var tipsBase = new object[0];
                 TryGetValue(dictionary, "TipMessages", ref tipsBase);
                 foreach (object tipBase in tipsBase)
@@ -203,6 +211,8 @@ namespace BasicAutoServer
             Server.ReportToMasterServer = ReportToMasterServer;
         }
 
+        public LocalEvent<DistanceCar> OnCarAddedEvent = new LocalEvent<DistanceCar>();
+
         public override void Start()
         {
             Log.Info("Basic Auto Server started!");
@@ -230,17 +240,15 @@ namespace BasicAutoServer
                 UnityEngine.Network.incomingPassword = PrivateServerPassword;
             }
 
-            if (IdleTimeout > 0)
+            Server.OnPlayerConnectedEvent.Connect(player =>
             {
-                Server.OnPlayerConnectedEvent.Connect(player =>
+                player.Countdown = CountdownTime;
+                player.OnCarAddedEvent.Connect(car =>
                 {
-                    player.Countdown = countdownTime;
-                    player.OnCarAddedEvent.Connect(car =>
-                    {
-                        car.AddExternalData(new LastMoveTimeData(DistanceServerMain.UnixTime));
-                    });
+                    car.AddExternalData(new LastMoveTimeData(DistanceServerMain.UnixTime));
+                    OnCarAddedEvent.Fire(car);
                 });
-            }
+            });
 
             if (WelcomeMessage != null)
             {
@@ -258,7 +266,7 @@ namespace BasicAutoServer
                     }
                     else
                     {
-                        LocalEvent<DistanceCar>.EventConnection connection = null;
+                        IEventConnection connection = null;
                         connection = player.OnCarAddedEvent.Connect(car =>
                         {
                             Server.SayLocalChat(player.UnityPlayer, DistanceChat.Server("AutoServer:Welcome", message));
@@ -270,41 +278,24 @@ namespace BasicAutoServer
 
             Server.OnLevelStartedEvent.Connect(() =>
             {
-                LevelEndTime = -1.0;
-                countdownTime = -1.0;
+                CountdownTime = -1.0;
             });
 
             Server.OnModeStartedEvent.Connect(() =>
             {
-                Log.DebugLine("BAS OMSE", 1);
                 StartingPlayerGuids.Clear();
-                Log.DebugLine("BAS OMSE", 2);
                 foreach (var player in Server.ValidPlayers)
                 {
-                    Log.DebugLine("BAS OMSE", 3);
                     if (player.Car != null)
                     {
-                        Log.DebugLine("BAS OMSE", 4);
                         player.Car.GetExternalData<LastMoveTimeData>().LastMoveTime = DistanceServerMain.UnixTime;
-                        Log.DebugLine("BAS OMSE", 5);
                         SetStartingPlayer(player.UnityPlayerGuid, true);
-                        Log.DebugLine("BAS OMSE", 6);
                     }
-                    Log.DebugLine("BAS OMSE", 7);
                 }
-                Log.DebugLine("BAS OMSE", 8);
-                if (LevelEndTime == -1.0)
-                {
-                    Log.DebugLine("BAS OMSE", 9);
-                    LevelEndTime = Server.ModeStartTime + LevelTimeout;
-                }
-                Log.DebugLine("BAS OMSE", 10);
                 if (ServerStage == Stage.Starting)
                 {
-                    Log.DebugLine("BAS OMSE", 11);
                     ServerStage = Stage.Started;
                 }
-                Log.DebugLine("BAS OMSE", 12);
             });
 
             OnAdvancingToNextLevel.Connect(() =>
@@ -320,10 +311,6 @@ namespace BasicAutoServer
             DistanceServerMain.GetEvent<Events.Instanced.Finished>().Connect((instance, data) =>
             {
                 Log.WriteLine($"{((DistanceCar)instance).Player.Name} finished");
-                if (ServerStage != Stage.Starting && ServerStage != Stage.Started && ServerStage != Stage.Timeout)
-                {
-                    return;
-                }
                 AttemptToAdvanceLevel();
             });
 
@@ -346,7 +333,7 @@ namespace BasicAutoServer
             Server.OnUpdateEvent.Connect(Update);
             Server.OnPlayerDisconnectedEvent.Connect(player =>
             {
-                if (Server.ValidPlayers.Count == 0 && AdvanceWhenAllPlayersFinish)
+                if (Server.ValidPlayers.Count == 0 && AdvanceWhenAllPlayersFinish && Server.HasModeStarted)
                 {
                     Server.SayChat(DistanceChat.Server("AutoServer:Advancing:Empty", "All players have left. Advancing level."));
                     AdvanceLevel();
@@ -377,6 +364,8 @@ namespace BasicAutoServer
             yield break;
         }
 
+        public LocalEvent<Cancellable> OnCheckIfLevelCanAdvanceEvent = new LocalEvent<Cancellable>();
+
         void AttemptToAdvanceLevel()
         {
             if (Server.StartingLevel || !Server.HasModeStarted)
@@ -384,36 +373,19 @@ namespace BasicAutoServer
                 Log.Debug($"Mode not started, not advancing normally.");
                 return;
             }
+
             if (Server.ValidPlayers.Count == 0)
             {
                 Log.Debug($"No players, not advancing normally.");
                 return;
             }
-            var canAdvance = AdvanceWhenAllPlayersFinish;
-            foreach (var player in Server.ValidPlayers)
-            {
-                if ((player.Car != null && !player.Car.Finished) || DistanceServerMain.UnixTime - player.RestartTime < 30)
-                {
-                    canAdvance = false;
-                    break;
-                }
-            }
-            if (canAdvance)
-            {
-                Log.Debug($"Advancing because all players with cars have finished.");
-                Server.SayChat(DistanceChat.Server("AutoServer:Advancing:Finished", "All players finished. Advancing to the next level in 10 seconds."));
-                AdvanceLevel();
-            }
-            else if (AdvanceWhenStartingPlayersFinish)
-            {
-                if (ServerStage == Stage.Started && GetUnfinishedStartingPlayersCount() == 0)
-                {
-                    LevelEndTime = DistanceServerMain.NetworkTime + 60.0;
-                    ServerStage = Stage.Timeout;
-                    setCountdownTime(Server.ModeTime + 60.0);
-                    Server.SayChat(DistanceChat.Server("AutoServer:Warning:InitialFinished", StartingPlayersFinishedMessageGetter()));
-                }
-            }
+
+            if (ServerStage != Stage.Started) return;
+
+            if (Cancellable.CheckCancelled(OnCheckIfLevelCanAdvanceEvent)) return;
+
+            Log.Debug("Advancing level from AttemptToAdvanceLevel");
+            AdvanceLevel();
         }
 
         public void AdvanceLevel()
@@ -450,7 +422,29 @@ namespace BasicAutoServer
 
         public void StartLevel()
         {
+            if (CurrentModeController != null)
+            {
+                CurrentModeController.Destroy();
+                CurrentModeController = null;
+                SprintMode = null;
+                ReverseTagMode = null;
+            }
+
             ServerStage = Stage.Starting;
+
+            if (Server.CurrentLevel.GameMode == "Reverse Tag")
+            {
+                ReverseTagMode = new ReverseTag(this, ReverseTagWinTime, ReverseTagLevelTimeout);
+                CurrentModeController = ReverseTagMode;
+            }
+            else
+            {
+                SprintMode = new Sprint(this);
+                CurrentModeController = SprintMode;
+            }
+
+            CurrentModeController.Start();
+
             Server.StartLevel();
         }
 
@@ -499,40 +493,9 @@ namespace BasicAutoServer
             return $"{timeout / 60}:{timeout % 60}";
         }
 
-        public bool ExtendTimeout(double time)
-        {
-            if (LevelEndTime == -1.0)
-            {
-                return false;
-            }
-            LevelEndTime += time;
-            if (ServerStage == Stage.Timeout && UnityEngine.Network.time < LevelEndTime - 60.0)
-            {
-                ServerStage = Stage.Started;
-                setCountdownTime(-1.0);
-            }
-            return true;
-        }
-
-        void setCountdownTime(double time)
-        {
-            countdownTime = time;
-            foreach (var player in Server.DistancePlayers.Values)
-            {
-                player.UpdateCountdown(time);
-            }
-        }
-
         public void Update()
         {
-            if (ServerStage == Stage.Started && UnityEngine.Network.time >= LevelEndTime - 60.0)
-            {
-                ServerStage = Stage.Timeout;
-                var timeLeft = LevelEndTime - UnityEngine.Network.time;
-                setCountdownTime(Server.ModeTime + timeLeft);
-                Server.SayChat(DistanceChat.Server("AutoServer:Warning:Timeout", TimeoutMessageGetter(GenerateLevelTimeoutText(LevelTimeout - 60.0))));
-            }
-            else if (ServerStage == Stage.Started && IdleTimeout > 0)
+            if (ServerStage == Stage.Started)
             {
                 foreach (var player in Server.ValidPlayers)
                 {
@@ -543,7 +506,7 @@ namespace BasicAutoServer
                         {
                             lastMoveData.LastMoveTime = DistanceServerMain.UnixTime;
                         }
-                        else if (DistanceServerMain.UnixTime - lastMoveData.LastMoveTime >= IdleTimeout)
+                        else if (IdleTimeout > 0 && DistanceServerMain.UnixTime - lastMoveData.LastMoveTime >= IdleTimeout)
                         {
                             lastMoveData.LastMoveTime = DistanceServerMain.UnixTime;
                             player.Car.BroadcastDNF();
@@ -552,14 +515,11 @@ namespace BasicAutoServer
                     }
                 }
             }
-            else if (ServerStage == Stage.Timeout && UnityEngine.Network.time >= LevelEndTime)
-            {
-                NextLevel();
-            }
             else if (ServerStage == Stage.AllFinished && UnityEngine.Network.time - allFinishedAt >= 10)
             {
                 NextLevel();
             }
+
             if (ReportToMasterServer)
             {
                 if (!masterServerDeregistered)
@@ -578,6 +538,28 @@ namespace BasicAutoServer
                     masterServerDeregistered = false;
                     lastMasterServerRegistration = DistanceServerMain.UnixTime;
                 }
+            }
+        }
+
+        public void FinishAllPlayersAndAdvanceLevel()
+        {
+            Log.Debug("Advancing level from FinishAllPlayersAndAdvanceLevel");
+            AdvanceLevel();
+            foreach (var player in Server.ValidPlayers)
+            {
+                if (player.Car != null && !player.Car.Finished)
+                {
+                    player.Car.BroadcastDNF();
+                }
+            }
+        }
+
+        public void SetCountdownTime(double time)
+        {
+            CountdownTime = time;
+            foreach (var player in Server.DistancePlayers.Values)
+            {
+                player.UpdateCountdown(time);
             }
         }
 
@@ -634,7 +616,8 @@ namespace BasicAutoServer
                                     var res = FilterWorkshopLevels(levels);
                                     return res;
                                 },
-                                MaxSearch = count
+                                MaxSearch = count,
+                                GameMode = GameMode
                             }, false);
                             levelRetrievers.Add(retriever);
                         }

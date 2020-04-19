@@ -267,6 +267,8 @@ public class DistanceServer
     public LocalEvent<NetworkConnectionError> OnFailedToConnectToMasterServerEvent = new LocalEvent<NetworkConnectionError>();
     public LocalEvent<MasterServerEvent> OnMasterServerEvent = new LocalEvent<MasterServerEvent>();
 
+    public LocalEvent<DistancePlayer> OnNeedToSyncLateClientToGameMode = new LocalEvent<DistancePlayer>();
+
     ///
 
     public void Init()
@@ -349,6 +351,7 @@ public class DistanceServer
                 {
                     // TODO: sync game mode things if already started -- different for every game mode (see SyncLateClientToGameMode.Data and SyncMode.Data)
                     // NOTE: this should be handled entirely by the game mode programming, not by the base server programming
+                    OnNeedToSyncLateClientToGameMode.Fire(distancePlayer);
                     if (distancePlayer.Countdown != -1.0)
                     {
                         DistanceServerMain.GetEvent<Events.ServerToClient.FinalCountdownActivate>().Fire(
@@ -661,6 +664,8 @@ public class DistanceServer
         return true;
     }
 
+    public LocalEvent<Cancellable> OnCheckIfModeCanStartEvent = new LocalEvent<Cancellable>();
+
     public bool StartingMode = false;
     public bool StartingModeDelay = false;
     public double StartingModeTime = -1.0;
@@ -672,6 +677,13 @@ public class DistanceServer
         {
             return;
         }
+
+        if (Cancellable.CheckCancelled(OnCheckIfModeCanStartEvent))
+        {
+            StartingModeTime = Network.time;
+            return;
+        }
+
         if (StartingModeTime == -1.0 || Network.time - StartingModeTime < StartingModeTimeout)
         {
             foreach (var player in ValidPlayers)
@@ -682,6 +694,8 @@ public class DistanceServer
                 }
             }
         }
+
+
         StartingModeDelay = true;
         // StartModeAfterDelay is a fix for the mode sometimes starting so early that the loading screen won't disappear
         DistanceServerMainStarter.Instance.StartCoroutine(StartModeAfterDelay(5.0f));
@@ -709,6 +723,7 @@ public class DistanceServer
 
         ModeStartTime = Network.time + 7.0 + delayTime;  // Shift start sooner/later
         ModeTimeOffset = -ModeStartTime;
+        ModeTime = 0.0;
         HasModeStarted = true;
 
         yield return new WaitForSeconds(delayTime);

@@ -151,7 +151,7 @@ namespace ServerListTools
         public override bool keepWaiting => !done;
 
         bool done = false;
-        LocalEvent<MasterServerEvent>.EventConnection conn;
+        IEventConnection conn;
 
         public WaitForServerList()
         {

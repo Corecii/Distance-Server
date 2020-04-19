@@ -17,11 +17,11 @@ public class LocalEventEmpty
 
     List<EventConnection> subscriptions = new List<EventConnection>();
     public delegate void LocalEventHandler();
-    public virtual EventConnection Connect(LocalEventHandler handler)
+    public virtual IEventConnection Connect(LocalEventHandler handler)
     {
         return Connect(0, handler);
     }
-    public virtual EventConnection Connect(int priority, LocalEventHandler handler)
+    public virtual IEventConnection Connect(int priority, LocalEventHandler handler)
     {
         // Lower priority comes first
         var connection = new EventConnection(this, handler, priority);

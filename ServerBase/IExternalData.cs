@@ -9,4 +9,5 @@ interface IExternalData
 {
     T GetExternalData<T>();
     void AddExternalData(object val);
+    void RemoveExternalData<T>();
 }

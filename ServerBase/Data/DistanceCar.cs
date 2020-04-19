@@ -43,6 +43,10 @@ public class DistanceCar : DistanceCarBase, IExternalData
     {
         ExternalData.Add(val);
     }
+    public void RemoveExternalData<T>()
+    {
+        ExternalData.Remove(GetExternalData<T>());
+    }
 
     public GameObject Networker;
     public NetworkView PlayerNetworkView;

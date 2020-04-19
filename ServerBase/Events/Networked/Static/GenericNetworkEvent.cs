@@ -34,16 +34,41 @@ public class GenericNetworkEvent<T> : NetworkEvent where T : struct, Distance::I
     public override void ReceiveRPC(Distance::BitStreamReader bitStreamReader, UnityEngine.NetworkMessageInfo info)
     {
         T data = DeserializeRPC(bitStreamReader);
-        foreach (var handler in subscriptions)
+        foreach (var conn in subscriptions)
         {
-            handler(data, info);
+            conn.Handler(data, info);
         }
     }
 
-    List<GenericNetworkEventHandler> subscriptions = new List<GenericNetworkEventHandler>();
+    List<NetworkEventConnection> subscriptions = new List<NetworkEventConnection>();
     public delegate void GenericNetworkEventHandler(T data, UnityEngine.NetworkMessageInfo info);
-    public virtual void Connect(GenericNetworkEventHandler handler)
+    public virtual IEventConnection Connect(GenericNetworkEventHandler handler)
     {
-        subscriptions.Add(handler);
+        return Connect(0, handler);
+    }
+    public virtual IEventConnection Connect(int priority, GenericNetworkEventHandler handler)
+    {
+        var connection = new NetworkEventConnection(this, handler, priority);
+        subscriptions.Add(connection);
+        subscriptions.Sort((a, b) => a.Priority - b.Priority);
+        return connection;
+    }
+
+    public class NetworkEventConnection : IEventConnection
+    {
+        public GenericNetworkEvent<T> Event;
+        public GenericNetworkEventHandler Handler;
+        public int Priority { get; set; }
+        public NetworkEventConnection(GenericNetworkEvent<T> evt, GenericNetworkEventHandler handler, int priority)
+        {
+            Event = evt;
+            Handler = handler;
+            Priority = priority;
+        }
+
+        public void Disconnect()
+        {
+            Event.subscriptions.Remove(this);
+        }
     }
 }

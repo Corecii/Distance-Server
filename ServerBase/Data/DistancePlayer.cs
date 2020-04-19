@@ -141,6 +141,10 @@ public class DistancePlayer : IExternalData
     {
         ExternalData.Add(val);
     }
+    public void RemoveExternalData <T>()
+    {
+        ExternalData.Remove(GetExternalData<T>());
+    }
 
     public LocalEventEmpty OnValidatedEvent = new LocalEventEmpty();
     public LocalEventEmpty OnValidatedPreReplicationEvent = new LocalEventEmpty();
@@ -214,7 +218,7 @@ public class DistancePlayer : IExternalData
 
     public bool IsLoading()
     {
-        return State == PlayerState.Initialized || State == PlayerState.Initialized || State == PlayerState.LoadingGameModeScene || State == PlayerState.LoadingLobbyScene;
+        return State == PlayerState.Initialized || State == PlayerState.Initializing || State == PlayerState.LoadingGameModeScene || State == PlayerState.LoadingLobbyScene;
     }
 
     public bool HasLoadedLevel(bool includeLobbyStuck = true)
