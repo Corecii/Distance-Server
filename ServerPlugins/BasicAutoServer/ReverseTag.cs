@@ -42,6 +42,8 @@ namespace BasicAutoServer
         public double WinTime;
         public double MaxModeTime;
 
+        public bool IsInSinglePlayerMode = false;
+
         public bool HasShown30SecondWarning = false;
         public bool HasShown10SecondWarning = false;
 
@@ -143,7 +145,7 @@ namespace BasicAutoServer
         public void OnCheckIfModeCanStart(Cancellable canceller)
         {
             canceller.CancelIf(
-                Plugin.Server.ValidPlayers.FindAll((player) => !player.Stuck && player.HasLoadedLevel(false)).Count < 2
+                Plugin.Server.ValidPlayers.FindAll((player) => !player.Stuck && player.HasLoadedLevel(false)).Count == 0
             );
         }
 
@@ -157,17 +159,54 @@ namespace BasicAutoServer
             TagBubbleLockedUntil = Plugin.Server.ModeTime + seconds;
         }
 
+        public System.Collections.IEnumerator GiveTagBubbleSoon(DistancePlayer fromPlayer, DistancePlayer player)
+        {
+            yield return new UnityEngine.WaitForSeconds(1);
+            if (IsPlayerInMode(player) && TaggedPlayer == fromPlayer)
+            {
+                fromPlayer.GetExternalData<ReverseTagData>().SecondsTagged = 0.0;
+                TagPlayer(player);
+            }
+            fromPlayer.SayLocalChat(DistanceChat.Server("ReverseTag:SinglePlayerTransition", "Transitioning out of single-player: your timer has been reset and your tag bubble taken!"));
+        }
+
         public void Update()
         {
             if (Finished) return;
             if (Plugin.ServerStage != BasicAutoServer.Stage.Started) return;
 
+            var playersInMode = GetModePlayers();
+
+            if (playersInMode.Count <= 1)
+            {
+                IsInSinglePlayerMode = true;
+                MaxModeTime += UnityEngine.Time.deltaTime;
+            }
+            else if (IsInSinglePlayerMode)
+            {
+                IsInSinglePlayerMode = false;
+                // When transitioning out of single-player mode, give the bubble to the new player to reset the timer:
+                if (TaggedPlayer != null)
+                {
+                    var nonTagged = playersInMode.Find((player) => TaggedPlayer != player);
+                    if (nonTagged != null)
+                    {
+                        TaggedPlayer.GetExternalData<ReverseTagData>().SecondsTagged = 0.0;
+                        DistanceServerMainStarter.Instance.StartCoroutine(GiveTagBubbleSoon(TaggedPlayer, nonTagged));
+                    }
+                }
+            }
+
             if (TaggedPlayer != null && !IsPlayerInMode(TaggedPlayer))
             {
                 TagRandomLastPlacePlayer();
+                if (!IsPlayerInMode(TaggedPlayer))
+                {
+                    TagPlayer(null);
+                }
             }
 
-            if (TaggedPlayer != null)
+            if (TaggedPlayer != null && !IsInSinglePlayerMode)
             {
                 TaggedPlayer.GetExternalData<ReverseTagData>().AddSecondsTagged(UnityEngine.Time.deltaTime, WinTime);
             }
@@ -273,12 +312,8 @@ namespace BasicAutoServer
 
         public void TagRandomLastPlacePlayer()
         {
-            var players = GetLastPlacePlayers();
-            if (players.Count == 0)
-            {
-                TagPlayer(null);
-                return;
-            }
+            var players = GetLastPlacePlayers(TaggedPlayer);
+            if (players.Count == 0) return;
 
             var player = players[UnityEngine.Random.Range(0, players.Count)];
             TagPlayer(player);
@@ -307,10 +342,11 @@ namespace BasicAutoServer
             return players.Count == 0 ? null : players.Last();
         }
 
-        public List<DistancePlayer> GetLastPlacePlayers()
+        public List<DistancePlayer> GetLastPlacePlayers(DistancePlayer exclude = null)
         {
             var players = GetModePlayers();
 
+            players.RemoveAll(player => player == exclude);
             players.Sort((a, b) => a.GetExternalData<ReverseTagData>().MillisTagged - b.GetExternalData<ReverseTagData>().MillisTagged);
 
             var minMillisTagged = -1;

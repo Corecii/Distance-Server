@@ -39,6 +39,8 @@ namespace BasicAutoServer
 
         int currentTip = 0;
 
+        bool hasLoadedWorkshopLevels = false;
+
         public GameMode CurrentModeController = null;
         public Sprint SprintMode = null;
         public ReverseTag ReverseTagMode = null;
@@ -667,11 +669,19 @@ namespace BasicAutoServer
             {
                 Log.Error("Workshop search returned nothing, using default: official levels");
                 Playlist = OfficialPlaylist;
+                hasLoadedWorkshopLevels = false;
                 yield break;
             }
 
             Playlist = results;
             currentLevelIndex = -1;
+
+            if (!hasLoadedWorkshopLevels)
+            {
+                hasLoadedWorkshopLevels = true;
+                Server.SayChat(DistanceChat.Server("BasicAutoServer:LoadedLevels", "Workshop playlist generated. Skipping to workshop playlist..."));
+                FinishAllPlayersAndAdvanceLevel();
+            }
         }
 
         public class ListIndexExternalData
