@@ -273,7 +273,6 @@ public class DistanceServer
 
     public void Init()
     {
-        MasterServer.dedicatedServer = true;
         DistanceServerMain.GetEvent<Events.ClientToServer.SubmitPlayerInfo>().Connect((data, info) =>
         {
             // ignore data.sender_, it should be sender
@@ -412,7 +411,7 @@ public class DistanceServer
             // TODO: write proper level compat check code (the current computed version is incorrect, so version checking is ignored)
             DistanceServerMain.GetEvent<Events.ServerToClient.UpdatePlayerLevelCompatibilityStatus>().Fire(
                 data.player_,
-                new Distance::Events.ServerToClient.UpdatePlayerLevelCompatibilityStatus.Data(data.player_, distancePlayer.LevelCompatability)
+                new Distance::Events.ServerToClient.UpdatePlayerLevelCompatibilityStatus.Data(info.sender, distancePlayer.LevelCompatability)
             );
             if (distancePlayer.State == DistancePlayer.PlayerState.WaitingForCompatibilityStatus)
             {

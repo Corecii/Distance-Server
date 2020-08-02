@@ -90,6 +90,7 @@ namespace BasicAutoServer
         bool ReportToMasterServer = true;
         public double ReportToMasterServerInitialDelay = 0;
         double MasterServerReRegisterFrequency = 5 * 60.0;
+        bool ReportToMasterServerAsDedicatedServer = false;
 
         public string GameMode = "Sprint";
 
@@ -126,6 +127,7 @@ namespace BasicAutoServer
                 TryGetValue(dictionary, "ReportToMasterServer", ref ReportToMasterServer);
                 TryGetValue(dictionary, "ReportToMasterServerInitialDelay", ref ReportToMasterServerInitialDelay);
                 TryGetValue(dictionary, "MasterServerReRegisterFrequency", ref MasterServerReRegisterFrequency);
+                TryGetValue(dictionary, "ReportToMasterServerAsDedicatedServer", ref ReportToMasterServerAsDedicatedServer);
                 TryGetValue(dictionary, "GameMode", ref GameMode);
                 TryGetValue(dictionary, "LoadWorkshopLevels", ref LoadWorkshopLevels);
                 TryGetValue(dictionary, "AdvanceWhenStartingPlayersFinish", ref AdvanceWhenStartingPlayersFinish);
@@ -221,6 +223,8 @@ namespace BasicAutoServer
             Playlist.AddRange(OfficialPlaylist);
             Filters = new List<FilterWorkshopSearchDelegate>();
             ReadSettings();
+
+            UnityEngine.MasterServer.dedicatedServer = ReportToMasterServerAsDedicatedServer;
 
             Server.MasterServerGameModeOverride = MasterServerGameModeOverride;
             Server.ServerName = ServerName;
@@ -335,7 +339,7 @@ namespace BasicAutoServer
             Server.OnUpdateEvent.Connect(Update);
             Server.OnPlayerDisconnectedEvent.Connect(player =>
             {
-                if (Server.ValidPlayers.Count == 0 && AdvanceWhenAllPlayersFinish && Server.HasModeStarted)
+                if (Server.ValidPlayers.Count == 0 && AdvanceWhenAllPlayersFinish) // && Server.HasModeStarted)
                 {
                     Server.SayChat(DistanceChat.Server("AutoServer:Advancing:Empty", "All players have left. Advancing level."));
                     AdvanceLevel();
