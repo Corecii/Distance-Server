@@ -10,7 +10,7 @@ using UnityEngine;
 
 public class DistanceServerMain : DistanceServerMainBase
 {
-    public static SemanticVersion ServerVersion = new SemanticVersion("0.1.3");
+    public static SemanticVersion ServerVersion = new SemanticVersion("0.2.0");
     public override int CompatibleStarterVersion => 1;
 
     public static NetworkView View;
